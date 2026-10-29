@@ -262,7 +262,7 @@ local function header()
 end
 
 local function tabs()
-  local names = { 'Coche', 'Circuito', 'Hora', 'TP' }
+  local names = { 'Coche', 'Skin', 'Circuito', 'Hora', 'TP' }
   local w = (ui.availableSpaceX() - 3 * 6) / 4
   for i, n in ipairs(names) do
     if i > 1 then ui.sameLine(0, 6) end
@@ -285,6 +285,70 @@ local function tabCar()
   ui.dummy(vec2(0, 8))
   if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then
     changeCar(state.carIndex, state.skinIndex)
+  end
+end
+
+local function tabSkin()
+  sectionTitle('Cambiar skin')
+ 
+  local carID = ac.getCarID(0)
+ 
+  -- Actualizar la lista cuando cambia el coche.
+  if skinState.carID ~= carID then
+    refreshLocalSkins()
+  end
+ 
+  smallText('Coche: ' .. tostring(carID), C.text)
+  ui.dummy(vec2(0, 4))
+ 
+  -- Sin skins: aviso y boton de recarga
+  if #skinState.skins == 0 then
+    smallText('No se han encontrado carpetas de skins.')
+    smallText('Comprueba la ruta local del coche.')
+    ui.dummy(vec2(0, 8))
+    if styledButton('RECARGAR SKINS', vec2(-0.1, 34), true) then
+      refreshLocalSkins()
+    end
+    return
+  end
+ 
+  smallText('Skins locales: ' .. #skinState.skins)
+  ui.dummy(vec2(0, 4))
+ 
+  if styledButton('RECARGAR LISTA', vec2(-0.1, 28), false) then
+    refreshLocalSkins()
+  end
+ 
+  ui.dummy(vec2(0, 6))
+ 
+  -- Lista con scroll para que no desborde la ventana si hay muchas skins
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+  ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
+    for i, skin in ipairs(skinState.skins) do
+      local label = skin.label .. '##skin_' .. skin.id
+      if styledButton(label, vec2(-0.1, 28), skinState.selected == i) then
+        skinState.selected = i
+      end
+    end
+  end)
+  ui.popStyleVar(1)
+  ui.popStyleColor(1)
+ 
+  ui.dummy(vec2(0, 8))
+ 
+  if styledButton('APLICAR SKIN', vec2(-0.1, 38), true) then
+    local skin = skinState.skins[skinState.selected]
+    if skin then
+      applyLocalSkin(skin)
+    end
+  end
+ 
+  if skinState.message ~= '' then
+    ui.dummy(vec2(0, 6))
+    ui.pushFont(ui.Font.Small)
+    ui.textWrapped(skinState.message)
+    ui.popFont()
   end
 end
 
@@ -342,8 +406,9 @@ local function drawMenu()
   header()
   tabs()
   if state.tab == 1 then tabCar()
-  elseif state.tab == 2 then tabTrack()
-  elseif state.tab == 3 then tabTime()
+  elseif state.tab == 2 then tabSkin()
+  elseif state.tab == 3 then tabTrack()
+  elseif state.tab == 4 then tabTime()
   else tabTeleport() end
   drawStatus()
   ui.dummy(vec2(0, 10))
