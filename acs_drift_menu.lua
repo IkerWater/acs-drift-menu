@@ -314,9 +314,9 @@ local function drawMenu()
   tabs()
   ui.separator()
   if state.tab == 1 then tabCar()
-  elseif state.tab == 2 then tabTrack()
-  elseif state.tab == 3 then tabTime()
-  elseif state.tab == 4 then tabSkin()
+  elseif state.tab == 2 then tabSkin()
+  elseif state.tab == 3 then tabTrack()
+  elseif state.tab == 4 then tabTime()
   else tabTeleport() end
   if state.message ~= '' and os.clock() - state.messageTime < 6 then
     ui.separator()
