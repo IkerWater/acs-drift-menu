@@ -329,5 +329,5 @@ end
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then state.open = not state.open end
   if not state.open then return end
-  ui.toolWindow('acs_menu/main', vec2(60, 120), vec2(360, 520), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(150, 150), vec2(500, 500), false, true, drawMenu)
 end
