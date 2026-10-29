@@ -1,4 +1,4 @@
--- ACS Drift by Water - script ONLINE para CSP, v0.4
+-- ACS Drift by Water - script ONLINE para CSP, v0.5
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]).
 -- Tecla M: abrir/cerrar el menu.
 -- Lo marcado [VERIFICAR] no esta confirmado en la documentacion: si falla,
@@ -20,13 +20,12 @@ local CONFIG = {
   -- Datos del servidor para reconectar (cambio de coche/skin).
   server = { host = '', port = 9600, httpPort = 8081, password = '123456789' },
 
-  -- Comandos de chat de AssettoServer (VotingPresetPlugin). Ajusta a tu version.
+  -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
   commands = {
-    voteList  = '/presetlist',
-    voteStart = '/presetstartvote',
-    vote      = '/vote %d',
+    mapStart = '/mapstart %d',
+    mapYes   = '/mapyes',
+    mapNo    = '/mapno',
   },
-  tracks = { 'sion_fk1_2026', 'sion_miranda', 'sr_shadowvalley' },
   
 }
 
@@ -97,29 +96,42 @@ local function loadLocalSkins(carID)
   local skins = {}
 
   if not io.dirExists(skinsPath) then
-    ac.warn('[Drift Menu] No existe la carpeta: ' .. skinsPath)
     return skins
   end
 
-  -- CSP utiliza callback, no devuelve una tabla.
-  io.scanDir(skinsPath, '*', function(name, attributes)
-    if attributes and attributes.isDirectory then
-      -- Ignorar carpetas ocultas y entradas especiales.
-      if name ~= '.' and name ~= '..' and name:sub(1, 1) ~= '.' then
-        skins[#skins + 1] = {
-          id = name,
-          label = name
-        }
+  local dirs = io.scanDir(skinsPath, '*') or {}
+
+  for _, name in ipairs(dirs) do
+    local skinPath = skinsPath .. '/' .. name
+
+    if io.dirExists(skinPath) then
+      local label = name
+      local skinJson = skinPath .. '/ui_skin.json'
+
+      -- El nombre visible es opcional:
+      -- si no existe ui_skin.json, usamos el nombre de carpeta.
+      if io.fileExists(skinJson) then
+        local ok, data = pcall(function()
+          return JSON.parse(io.load(skinJson, ''))
+        end)
+
+        if ok and type(data) == 'table'
+            and type(data.skinname) == 'string'
+            and data.skinname ~= '' then
+          label = data.skinname
+        end
       end
+
+      skins[#skins + 1] = {
+        id = name,
+        label = label
+      }
     end
-  end)
+  end
 
   table.sort(skins, function(a, b)
     return a.label:lower() < b.label:lower()
   end)
-
-  ac.log('[Drift Menu] Skins encontradas para '
-    .. carID .. ': ' .. #skins)
 
   return skins
 end
@@ -132,6 +144,7 @@ local function refreshLocalSkins()
   skinState.selected = 1
   skinState.message = ''
 
+  -- Seleccionar inicialmente la skin oficial del coche.
   local currentSkinID = ac.getCarSkinID(0)
 
   for i, skin in ipairs(skinState.skins) do
@@ -144,24 +157,100 @@ end
 
 local function applyLocalSkin(skin)
   local carID = ac.getCarID(0)
-
   local skinPath = ac.getFolder(ac.FolderID.ContentCars)
-    .. '/' .. carID .. '/skins/' .. skin.id
+      .. '/' .. carID .. '/skins/' .. skin.id
 
   local ok, err = pcall(function()
     ac.findNodes('carRoot:0'):applySkin(skinPath)
   end)
 
   if ok then
-    skinState.message = 'Skin aplicada: ' .. skin.label
-    ac.log('[Drift Menu] Aplicada: ' .. skinPath)
+    skinState.message = 'Skin aplicada localmente: ' .. skin.label
   else
-    skinState.message = 'Error: ' .. tostring(err)
-    ac.error('[Drift Menu] ' .. tostring(err))
+    skinState.message = 'Error al aplicar skin: ' .. tostring(err)
   end
 end
 
-local function voteTrack(n) sendChatCommand(string.format(CONFIG.commands.vote, n)) end
+
+------------------------------------------------------------------------
+-- Votacion de mapa (servidor: MapVotePlugin)
+-- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
+------------------------------------------------------------------------
+local mapvote = {
+  tracks = {}, tracksState = 'idle',   -- idle | loading | ok | error
+  status = nil, statusError = nil,
+  filter = '', selected = nil,
+  pollTimer = 0, myVote = nil, myVoteFor = nil,
+}
+
+local function serverBaseUrl()
+  local host, port = CONFIG.server.host, CONFIG.server.httpPort
+  if ac.getServerIP then
+    local ok, v = pcall(ac.getServerIP)
+    if ok and v and v ~= '' then host = v end
+  end
+  if ac.getServerHTTPPort then
+    local ok, v = pcall(ac.getServerHTTPPort)
+    if ok and v and v > 0 then port = v end
+  end
+  return string.format('http://%s:%d', host, port)
+end
+
+-- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
+local function httpGetJson(path, callback)
+  local ok, err = pcall(function()
+    web.get(serverBaseUrl() .. path, function(e, response)
+      if e or not response or response.status ~= 200 then
+        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
+      end
+      local parsedOk, data = pcall(JSON.parse, response.body)
+      if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
+    end)
+  end)
+  if not ok then callback(nil, tostring(err)) end
+end
+
+local function loadTracks()
+  mapvote.tracksState = 'loading'
+  httpGetJson('/mapvote/tracks', function(data, err)
+    if data then
+      mapvote.tracks, mapvote.tracksState = data, 'ok'
+    else
+      mapvote.tracksState = 'error'
+      notify('Lista de mapas: ' .. tostring(err))
+    end
+  end)
+end
+
+local function pollStatus()
+  httpGetJson('/mapvote/status', function(data, err)
+    mapvote.status, mapvote.statusError = data, err
+    if data and not data.active then mapvote.myVote, mapvote.myVoteFor = nil, nil end
+  end)
+end
+
+local function mapVoteUpdate(dt)
+  if not state.open or state.tab ~= 3 then return end
+  if mapvote.tracksState == 'idle' then loadTracks() end
+  mapvote.pollTimer = mapvote.pollTimer - dt
+  if mapvote.pollTimer <= 0 then
+    mapvote.pollTimer = 1.5
+    pollStatus()
+  end
+end
+
+local function proposeTrack(entry)
+  sendChatCommand(string.format(CONFIG.commands.mapStart, entry.id))
+  mapvote.pollTimer = 0.4
+end
+
+local function castVote(yes)
+  sendChatCommand(yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo)
+  mapvote.myVote = yes
+  mapvote.myVoteFor = mapvote.status and mapvote.status.proposal and mapvote.status.proposal.id or nil
+  mapvote.pollTimer = 0.4
+end
+
 
 local function setTimeOfDay(hour)
   safe('Hora del dia', function()
@@ -196,68 +285,69 @@ function script.update(dt)
   if returnButton:pressed() then
     teleportToPoint()
   end
+  mapVoteUpdate(dt)
 end
 
 ------------------------------------------------------------------------
 -- INTERFAZ (tema oscuro moderno)
 ------------------------------------------------------------------------
-local colors = {
+local C = {
   bg        = rgbm(0.045, 0.045, 0.070, 0.96),
   surface   = rgbm(0.100, 0.100, 0.150, 1),
   surfaceHi = rgbm(0.150, 0.140, 0.220, 1),
   accent    = rgbm(0.62, 0.36, 1.00, 1),
-  accentHi  = rgbm(0.25, 0.60, 0.80, 1),
+  accentHi  = rgbm(0.74, 0.50, 1.00, 1),
   text      = rgbm(0.94, 0.94, 0.98, 1),
   dim       = rgbm(0.58, 0.58, 0.70, 1),
 }
 
 -- Texto grande: usa dwrite si el SDK lo ofrece; si no, texto normal.
-local function bigText(text, size, alignment, color)
+local function bigText(text, size, color)
   if ui.dwriteText then
     ui.dwriteText(text, size, color)
   else
     ui.pushFont(ui.Font.Title)
-    ui.textAligned(alignment, text, color or colors.dim)
+    ui.textColored(text, color)
     ui.popFont()
   end
 end
 
-local function smallText(text, alignment, color)
+local function smallText(text, color)
   ui.pushFont(ui.Font.Small)
-  ui.textAligned(alignment, text, color or colors.dim)
+  ui.textColored(text, color or C.dim)
   ui.popFont()
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
-local function styledButton(label, size, selected)
+local function styledButton(label, size, selected, disabled)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
-  ui.pushStyleColor(ui.StyleColor.Button,        selected and colors.accent   or colors.surface)
-  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and colors.accentHi or colors.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.ButtonActive,  colors.accent)
-  ui.pushStyleColor(ui.StyleColor.Text,          colors.text)
-  local pressed = ui.button(label, size)
+  ui.pushStyleColor(ui.StyleColor.Button,        selected and C.accent   or C.surface)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive,  C.accent)
+  ui.pushStyleColor(ui.StyleColor.Text,          C.text)
+  local pressed = ui.button(label, size, disabled and ui.ButtonFlags.Disabled or 0)
   ui.popStyleColor(4)
   ui.popStyleVar(1)
-  return pressed
+  return pressed and not disabled
 end
 
 local function sectionTitle(text)
   ui.dummy(vec2(0, 4))
-  smallText(string.upper(text), colors.accent)
+  smallText(string.upper(text), C.accent)
   ui.dummy(vec2(0, 2))
 end
 
 local function accentLine()
   local p = ui.getCursor()
   local w = ui.availableSpaceX()
-  ui.drawRectFilled(p, p + vec2(w, 2), colors.accent, 1)
+  ui.drawRectFilled(p, p + vec2(w, 2), C.accent, 1)
   ui.dummy(vec2(0, 8))
 end
 
 local function header()
   ui.dummy(vec2(0, 2))
-  bigText('ACS DRIFT', 26, ui.Alignment.Left, colors.text)
-  smallText('by Water', ui.Alignment.Left, colors.accentHi)
+  bigText('ACS DRIFT', 26, C.text)
+  smallText('by Water', C.accentHi)
   ui.dummy(vec2(0, 6))
   accentLine()
 end
@@ -273,7 +363,6 @@ local function tabs()
 end
 
 local function tabCar()
-  sectionTitle('---WIP---')
   sectionTitle('Coche')
   for i, c in ipairs(CONFIG.cars) do
     if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
@@ -291,7 +380,6 @@ local function tabCar()
 end
 
 local function tabSkin()
-  sectionTitle('---WIP---')
   sectionTitle('Cambiar skin')
  
   local carID = ac.getCarID(0)
@@ -301,13 +389,13 @@ local function tabSkin()
     refreshLocalSkins()
   end
  
-  smallText('Coche: ' .. tostring(carID), colors.text)
+  smallText('Coche: ' .. tostring(carID), C.text)
   ui.dummy(vec2(0, 4))
  
   -- Sin skins: aviso y boton de recarga
   if #skinState.skins == 0 then
-    smallText('No se han encontrado carpetas de skins.', ui.Alignment.Left, colors.text)
-    smallText('Comprueba la ruta local del coche.', ui.Alignment.Left, colors.text)
+    smallText('No se han encontrado carpetas de skins.')
+    smallText('Comprueba la ruta local del coche.')
     ui.dummy(vec2(0, 8))
     if styledButton('RECARGAR SKINS', vec2(-0.1, 34), true) then
       refreshLocalSkins()
@@ -355,25 +443,118 @@ local function tabSkin()
   end
 end
 
+local function drawProgress(fraction)
+  local p = ui.getCursor()
+  local w = ui.availableSpaceX()
+  ui.drawRectFilled(p, p + vec2(w, 8), C.surface, 4)
+  ui.drawRectFilled(p, p + vec2(w * math.max(0, math.min(1, fraction)), 8), C.accent, 4)
+  ui.dummy(vec2(0, 12))
+end
+
 local function tabTrack()
-  sectionTitle('---WIP---')
-  sectionTitle('Votar circuito')
-  for i, name in ipairs(CONFIG.tracks) do
-    if styledButton(string.format('%d   %s', i, name), vec2(-0.1, 32), false) then voteTrack(i) end
+  local st = mapvote.status
+
+  sectionTitle('Mapa actual')
+  if st and st.current then
+    ui.pushFont(ui.Font.Small)
+    ui.textWrapped(st.current.name)
+    ui.popFont()
+  elseif mapvote.statusError then
+    smallText('Sin conexion con el servidor: ' .. mapvote.statusError)
+  else
+    smallText('Consultando...')
   end
+
+  -- Cambio aprobado: cuenta atras
+  if st and st.changing then
+    sectionTitle('Cambiando de circuito')
+    smallText(string.format('El servidor se reinicia en %d s. Vuelve a entrar al servidor.', st.changeInSeconds or 0), C.accentHi)
+    return
+  end
+
+  -- Votacion en curso
+  if st and st.active and st.proposal then
+    sectionTitle('Votacion en curso')
+    ui.pushFont(ui.Font.Small)
+    ui.textWrapped(st.proposal.name)
+    ui.popFont()
+    smallText('Propone: ' .. tostring(st.proposer or '?'))
+    smallText(string.format('A favor: %d de %d necesarios  |  Conectados: %d', st.yes, st.needed, st.connectedAtStart))
+    smallText(string.format('Tiempo restante: %d s', st.secondsLeft))
+    ui.dummy(vec2(0, 4))
+    drawProgress(st.yes / math.max(1, st.needed))
+
+    local voted = mapvote.myVoteFor == st.proposal.id
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton('A FAVOR', vec2(w, 36), voted and mapvote.myVote == true) then castVote(true) end
+    ui.sameLine(0, 6)
+    if styledButton('EN CONTRA', vec2(w, 36), voted and mapvote.myVote == false) then castVote(false) end
+    return
+  end
+
+  -- Sin votacion: elegir mapa y proponer
+  local cooldown = st and st.cooldownLeft or 0
+  sectionTitle('Proponer cambio de mapa')
+  if cooldown > 0 then
+    smallText(string.format('Podras iniciar otra votacion en %d s', cooldown), C.accentHi)
+  end
+
+  if mapvote.tracksState == 'loading' then
+    smallText('Cargando lista de mapas...')
+  elseif mapvote.tracksState == 'error' then
+    smallText('No se pudo cargar la lista de mapas.')
+    ui.dummy(vec2(0, 4))
+    if styledButton('REINTENTAR', vec2(-0.1, 32), true) then loadTracks() end
+    return
+  end
+
+  ui.setNextItemWidth(ui.availableSpaceX())
+  mapvote.filter = ui.inputText('##mapfilter', mapvote.filter)
+  if mapvote.filter == '' then smallText('Escribe arriba para filtrar mapas.') end
+  ui.dummy(vec2(0, 4))
+
+  local needle = string.lower(mapvote.filter or '')
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+  ui.childWindow('acs_map_list', vec2(-0.1, 230), false, function()
+    local shown = 0
+    for _, e in ipairs(mapvote.tracks) do
+      if needle == '' or string.find(string.lower(e.name), needle, 1, true) then
+        shown = shown + 1
+        if shown > 150 then
+          smallText('Hay mas resultados: afina el filtro.')
+          break
+        end
+        if styledButton(e.name .. '##map_' .. e.id, vec2(-0.1, 28), mapvote.selected == e.id) then
+          mapvote.selected = e.id
+        end
+      end
+    end
+    if shown == 0 then smallText('Sin resultados.') end
+  end)
+  ui.popStyleVar(1)
+  ui.popStyleColor(1)
+
   ui.dummy(vec2(0, 8))
-  local w = (ui.availableSpaceX() - 6) / 2
-  if styledButton('Ver lista', vec2(w, 30), false) then sendChatCommand(CONFIG.commands.voteList) end
-  ui.sameLine(0, 6)
-  if styledButton('Iniciar votacion', vec2(w, 30), true) then sendChatCommand(CONFIG.commands.voteStart) end
+  local entry
+  for _, e in ipairs(mapvote.tracks) do
+    if e.id == mapvote.selected then entry = e break end
+  end
+  local isCurrent = entry and st and st.current
+      and entry.track == st.current.track and entry.layout == st.current.layout
+  local canPropose = entry ~= nil and cooldown <= 0 and not isCurrent
+
+  if styledButton('PROPONER CAMBIO', vec2(-0.1, 38), true, not canPropose) then proposeTrack(entry) end
+  if isCurrent then smallText('Ya estas en ese mapa.') end
+  ui.dummy(vec2(0, 4))
+  if styledButton('Recargar lista', vec2(-0.1, 26), false) then loadTracks() end
 end
 
 local function tabTime()
-  sectionTitle('---WIP---')
   sectionTitle('Hora del dia')
-  ui.pushStyleColor(ui.StyleColor.FrameBg, colors.surface)
-  ui.pushStyleColor(ui.StyleColor.SliderGrab, colors.accent)
-  ui.pushStyleColor(ui.StyleColor.SliderGrabActive, colors.accentHi)
+  ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
+  ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
+  ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
   ui.setNextItemWidth(ui.availableSpaceX())
   state.hour = ui.slider('##hour', state.hour, 0, 24, 'Hora: %.1f')
@@ -386,7 +567,7 @@ end
 local function tabTeleport()
   sectionTitle('Reaparicion / TP')
   if styledButton('Guardar punto actual', vec2(-0.1, 34), false) then savePoint() end
-  if styledButton('Volver al punto guardado', vec2(-0.1, 34), false) then teleportToPoint() end
+  if styledButton('Volver al punto guardado', vec2(-0.1, 34), true) then teleportToPoint() end
   if styledButton('Ir a pits', vec2(-0.1, 34), false) then teleportToPits() end
 
   sectionTitle('Boton de retorno')
@@ -395,7 +576,7 @@ local function tabTeleport()
   returnButton:control(vec2(ui.availableSpaceX(), 30))
   ui.dummy(vec2(0, 2))
   if returnButton:configured() then
-    smallText('Asignado a: ' .. tostring(returnButton:boundTo()), colors.accentHi)
+    smallText('Asignado a: ' .. tostring(returnButton:boundTo()), C.accentHi)
   else
     smallText('Sin asignar: pulsa el cuadro y luego la tecla/boton.')
   end
@@ -404,7 +585,7 @@ end
 local function drawStatus()
   if state.message ~= '' and os.clock() - state.messageTime < 6 then
     ui.dummy(vec2(0, 8))
-    ui.pushStyleColor(ui.StyleColor.ChildBg, colors.surface)
+    ui.pushStyleColor(ui.StyleColor.ChildBg, C.surface)
     ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
     ui.childWindow('acs_status', vec2(-0.1, 46), false, function()
       ui.dummy(vec2(0, 2))
@@ -436,8 +617,8 @@ end
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then state.open = not state.open end
   if not state.open then return end
-  ui.pushStyleColor(ui.StyleColor.WindowBg, colors.bg)
-  ui.pushStyleColor(ui.StyleColor.Border, colors.accent)
+  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
   ui.toolWindow('acs_menu/main', vec2(150, 150), vec2(500, 700), false, true, drawMenu)
