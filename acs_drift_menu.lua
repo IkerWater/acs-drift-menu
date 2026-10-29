@@ -97,42 +97,29 @@ local function loadLocalSkins(carID)
   local skins = {}
 
   if not io.dirExists(skinsPath) then
+    ac.warn('[Drift Menu] No existe la carpeta: ' .. skinsPath)
     return skins
   end
 
-  local dirs = io.scanDir(skinsPath, '*') or {}
-
-  for _, name in ipairs(dirs) do
-    local skinPath = skinsPath .. '/' .. name
-
-    if io.dirExists(skinPath) then
-      local label = name
-      local skinJson = skinPath .. '/ui_skin.json'
-
-      -- El nombre visible es opcional:
-      -- si no existe ui_skin.json, usamos el nombre de carpeta.
-      if io.fileExists(skinJson) then
-        local ok, data = pcall(function()
-          return JSON.parse(io.load(skinJson, ''))
-        end)
-
-        if ok and type(data) == 'table'
-            and type(data.skinname) == 'string'
-            and data.skinname ~= '' then
-          label = data.skinname
-        end
+  -- CSP utiliza callback, no devuelve una tabla.
+  io.scanDir(skinsPath, '*', function(name, attributes)
+    if attributes and attributes.isDirectory then
+      -- Ignorar carpetas ocultas y entradas especiales.
+      if name ~= '.' and name ~= '..' and name:sub(1, 1) ~= '.' then
+        skins[#skins + 1] = {
+          id = name,
+          label = name
+        }
       end
-
-      skins[#skins + 1] = {
-        id = name,
-        label = label
-      }
     end
-  end
+  end)
 
   table.sort(skins, function(a, b)
     return a.label:lower() < b.label:lower()
   end)
+
+  ac.log('[Drift Menu] Skins encontradas para '
+    .. carID .. ': ' .. #skins)
 
   return skins
 end
@@ -145,7 +132,6 @@ local function refreshLocalSkins()
   skinState.selected = 1
   skinState.message = ''
 
-  -- Seleccionar inicialmente la skin oficial del coche.
   local currentSkinID = ac.getCarSkinID(0)
 
   for i, skin in ipairs(skinState.skins) do
@@ -158,20 +144,22 @@ end
 
 local function applyLocalSkin(skin)
   local carID = ac.getCarID(0)
+
   local skinPath = ac.getFolder(ac.FolderID.ContentCars)
-      .. '/' .. carID .. '/skins/' .. skin.id
+    .. '/' .. carID .. '/skins/' .. skin.id
 
   local ok, err = pcall(function()
     ac.findNodes('carRoot:0'):applySkin(skinPath)
   end)
 
   if ok then
-    skinState.message = 'Skin aplicada localmente: ' .. skin.label
+    skinState.message = 'Skin aplicada: ' .. skin.label
+    ac.log('[Drift Menu] Aplicada: ' .. skinPath)
   else
-    skinState.message = 'Error al aplicar skin: ' .. tostring(err)
+    skinState.message = 'Error: ' .. tostring(err)
+    ac.error('[Drift Menu] ' .. tostring(err))
   end
 end
-
 
 local function voteTrack(n) sendChatCommand(string.format(CONFIG.commands.vote, n)) end
 
