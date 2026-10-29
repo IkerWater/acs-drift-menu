@@ -18,7 +18,7 @@ local CONFIG = {
   },
 
   -- Datos del servidor para reconectar (cambio de coche/skin).
-  server = { host = '', port = 9600, httpPort = 8081, password = '123456789' },
+  server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
   -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
   commands = {
