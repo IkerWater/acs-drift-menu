@@ -27,6 +27,7 @@ local CONFIG = {
     vote      = '/vote %d',
   },
   tracks = { 'sion_fk1_2026', 'sion_miranda', 'sr_shadowvalley' },
+  
 }
 
 ------------------------------------------------------------------------
@@ -56,6 +57,10 @@ end
 ------------------------------------------------------------------------
 -- FUNCIONES
 ------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- Coche y skin
+------------------------------------------------------------------------
 local function changeCar(carIdx, skinIdx)
   local car = CONFIG.cars[carIdx]
   safe('Cambio de coche', function()
@@ -66,6 +71,30 @@ local function changeCar(carIdx, skinIdx)
       car = car.id, skin = car.skins[skinIdx],
     })
   end)
+end
+
+-- CAMBIO VISUAL DE SKIN (solo cliente local)
+
+local skinList = {}
+local selectedSkin = 1
+local currentCarID = nil
+local skinMessage = ''
+
+local function refreshSkinList()
+  currentCarID = ac.getCarID(0)
+  local currentSkinID = ac.getCarSkinID(0)
+
+  -- El script remoto no puede enumerar carpetas libremente.
+  -- De momento, esta lista debe venir de una fuente externa.
+  skinList = CONFIG.localSkins and CONFIG.localSkins[currentCarID] or {}
+
+  selectedSkin = 1
+  for i, skin in ipairs(skinList) do
+    if skin == currentSkinID then
+      selectedSkin = i
+      break
+    end
+  end
 end
 
 local function voteTrack(n) sendChatCommand(string.format(CONFIG.commands.vote, n)) end
@@ -109,7 +138,7 @@ local function header(text)
 end
 
 local function tabs()
-  local names = { 'Coche', 'Circuito', 'Hora', 'TP' }
+  local names = { 'Coche', 'Skins', 'Circuito', 'Hora', 'TP' }
   for i, n in ipairs(names) do
     if i > 1 then ui.sameLine() end
     ui.pushStyleColor(ui.StyleColor.Button, state.tab == i and ACCENT or rgbm(0.15, 0.15, 0.2, 1))
@@ -128,6 +157,47 @@ local function tabCar()
     if ui.selectable(s, state.skinIndex == i) then state.skinIndex = i end
   end
   if ui.button('APLICAR (reconecta)', vec2(-0.1, 36)) then changeCar(state.carIndex, state.skinIndex) end
+end
+
+local function tabSkin()
+  header('CAMBIAR SKIN')
+
+  local carID = ac.getCarID(0)
+  local currentSkinID = ac.getCarSkinID(0)
+
+  ui.text('Coche: ' .. tostring(carID))
+  ui.text('Skin actual: ' .. tostring(currentSkinID))
+  ui.separator()
+
+  if currentCarID ~= carID then
+    refreshSkinList()
+  end
+
+  if #skinList == 0 then
+    ui.text('No hay skins en el catálogo.')
+    ui.text('Hace falta cargar la lista desde otra fuente.')
+    return
+  end
+
+  for i, skin in ipairs(skinList) do
+    if ui.selectable(skin, selectedSkin == i) then
+      selectedSkin = i
+    end
+  end
+
+  if ui.button('APLICAR SKIN', vec2(-0.1, 36)) then
+    local skin = skinList[selectedSkin]
+    local skinPath = ac.getFolder(ac.FolderID.ContentCars)
+      .. '/' .. carID .. '/skins/' .. skin
+
+    local carNodes = ac.findNodes('carRoot:0')
+    carNodes:applySkin(skinPath)
+    skinMessage = 'Skin visual aplicada: ' .. skin
+  end
+
+  if skinMessage ~= '' then
+    ui.text(skinMessage)
+  end
 end
 
 local function tabTrack()
@@ -160,6 +230,7 @@ local function drawMenu()
   if state.tab == 1 then tabCar()
   elseif state.tab == 2 then tabTrack()
   elseif state.tab == 3 then tabTime()
+  elseif state.tab == 4 then tabSkin()
   else tabTeleport() end
   if state.message ~= '' and os.clock() - state.messageTime < 6 then
     ui.separator()
