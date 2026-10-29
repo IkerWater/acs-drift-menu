@@ -351,9 +351,9 @@ local function tabSkin()
   ui.dummy(vec2(0, 8))
  
   if styledButton('APLICAR SKIN', vec2(-0.1, 38), true) then
-    local skin = skinState.skins[{skinState.selected}]
+    local skin = skinState.skins[skinState.selected]
     if skin then
-      applyLocalSkin(skin)
+      applyLocalSkin({skin})
     end
   end
  
