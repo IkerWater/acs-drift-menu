@@ -213,40 +213,40 @@ end
 ------------------------------------------------------------------------
 -- INTERFAZ (tema oscuro moderno)
 ------------------------------------------------------------------------
-local C = {
+local colors = {
   bg        = rgbm(0.045, 0.045, 0.070, 0.96),
   surface   = rgbm(0.100, 0.100, 0.150, 1),
   surfaceHi = rgbm(0.150, 0.140, 0.220, 1),
   accent    = rgbm(0.62, 0.36, 1.00, 1),
-  accentHi  = rgbm(0.74, 0.50, 1.00, 1),
+  accentHi  = rgbm(0.25, 0.60, 0.80, 1),
   text      = rgbm(0.94, 0.94, 0.98, 1),
   dim       = rgbm(0.58, 0.58, 0.70, 1),
 }
 
 -- Texto grande: usa dwrite si el SDK lo ofrece; si no, texto normal.
-local function bigText(text, size, color)
+local function bigText(text, size, alignment, color)
   if ui.dwriteText then
     ui.dwriteText(text, size, color)
   else
     ui.pushFont(ui.Font.Title)
-    ui.textColored(text, color)
+    ui.textAligned(alignment, text, color or colors.dim)
     ui.popFont()
   end
 end
 
-local function smallText(text, color)
+local function smallText(text, alignment, color)
   ui.pushFont(ui.Font.Small)
-  ui.textColored(text, color or C.dim)
+  ui.textAligned(alignment, text, color or colors.dim)
   ui.popFont()
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
 local function styledButton(label, size, selected)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
-  ui.pushStyleColor(ui.StyleColor.Button,        selected and C.accent   or C.surface)
-  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.ButtonActive,  C.accent)
-  ui.pushStyleColor(ui.StyleColor.Text,          C.text)
+  ui.pushStyleColor(ui.StyleColor.Button,        selected and colors.accent   or colors.surface)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and colors.accentHi or colors.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive,  colors.accent)
+  ui.pushStyleColor(ui.StyleColor.Text,          colors.text)
   local pressed = ui.button(label, size)
   ui.popStyleColor(4)
   ui.popStyleVar(1)
@@ -255,21 +255,21 @@ end
 
 local function sectionTitle(text)
   ui.dummy(vec2(0, 4))
-  smallText(string.upper(text), C.accent)
+  smallText(string.upper(text), colors.accent)
   ui.dummy(vec2(0, 2))
 end
 
 local function accentLine()
   local p = ui.getCursor()
   local w = ui.availableSpaceX()
-  ui.drawRectFilled(p, p + vec2(w, 2), C.accent, 1)
+  ui.drawRectFilled(p, p + vec2(w, 2), colors.accent, 1)
   ui.dummy(vec2(0, 8))
 end
 
 local function header()
   ui.dummy(vec2(0, 2))
-  bigText('ACS DRIFT', 26, C.text)
-  smallText('by Water', C.accentHi)
+  bigText('ACS DRIFT', 26, ui.Alignment.Left, colors.text)
+  smallText('by Water', ui.Alignment.Left, colors.accentHi)
   ui.dummy(vec2(0, 6))
   accentLine()
 end
@@ -285,6 +285,7 @@ local function tabs()
 end
 
 local function tabCar()
+  sectionTitle('---WIP---')
   sectionTitle('Coche')
   for i, c in ipairs(CONFIG.cars) do
     if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
@@ -302,6 +303,7 @@ local function tabCar()
 end
 
 local function tabSkin()
+  sectionTitle('---WIP---')
   sectionTitle('Cambiar skin')
  
   local carID = ac.getCarID(0)
@@ -311,13 +313,13 @@ local function tabSkin()
     refreshLocalSkins()
   end
  
-  smallText('Coche: ' .. tostring(carID), C.text)
+  smallText('Coche: ' .. tostring(carID), colors.text)
   ui.dummy(vec2(0, 4))
  
   -- Sin skins: aviso y boton de recarga
   if #skinState.skins == 0 then
-    smallText('No se han encontrado carpetas de skins.')
-    smallText('Comprueba la ruta local del coche.')
+    smallText('No se han encontrado carpetas de skins.', ui.Alignment.Left, colors.text)
+    smallText('Comprueba la ruta local del coche.', ui.Alignment.Left, colors.text)
     ui.dummy(vec2(0, 8))
     if styledButton('RECARGAR SKINS', vec2(-0.1, 34), true) then
       refreshLocalSkins()
@@ -366,6 +368,7 @@ local function tabSkin()
 end
 
 local function tabTrack()
+  sectionTitle('---WIP---')
   sectionTitle('Votar circuito')
   for i, name in ipairs(CONFIG.tracks) do
     if styledButton(string.format('%d   %s', i, name), vec2(-0.1, 32), false) then voteTrack(i) end
@@ -378,10 +381,11 @@ local function tabTrack()
 end
 
 local function tabTime()
+  sectionTitle('---WIP---')
   sectionTitle('Hora del dia')
-  ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
-  ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
-  ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.FrameBg, colors.surface)
+  ui.pushStyleColor(ui.StyleColor.SliderGrab, colors.accent)
+  ui.pushStyleColor(ui.StyleColor.SliderGrabActive, colors.accentHi)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
   ui.setNextItemWidth(ui.availableSpaceX())
   state.hour = ui.slider('##hour', state.hour, 0, 24, 'Hora: %.1f')
@@ -394,7 +398,7 @@ end
 local function tabTeleport()
   sectionTitle('Reaparicion / TP')
   if styledButton('Guardar punto actual', vec2(-0.1, 34), false) then savePoint() end
-  if styledButton('Volver al punto guardado', vec2(-0.1, 34), true) then teleportToPoint() end
+  if styledButton('Volver al punto guardado', vec2(-0.1, 34), false) then teleportToPoint() end
   if styledButton('Ir a pits', vec2(-0.1, 34), false) then teleportToPits() end
 
   sectionTitle('Boton de retorno')
@@ -403,7 +407,7 @@ local function tabTeleport()
   returnButton:control(vec2(ui.availableSpaceX(), 30))
   ui.dummy(vec2(0, 2))
   if returnButton:configured() then
-    smallText('Asignado a: ' .. tostring(returnButton:boundTo()), C.accentHi)
+    smallText('Asignado a: ' .. tostring(returnButton:boundTo()), colors.accentHi)
   else
     smallText('Sin asignar: pulsa el cuadro y luego la tecla/boton.')
   end
@@ -412,7 +416,7 @@ end
 local function drawStatus()
   if state.message ~= '' and os.clock() - state.messageTime < 6 then
     ui.dummy(vec2(0, 8))
-    ui.pushStyleColor(ui.StyleColor.ChildBg, C.surface)
+    ui.pushStyleColor(ui.StyleColor.ChildBg, colors.surface)
     ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
     ui.childWindow('acs_status', vec2(-0.1, 46), false, function()
       ui.dummy(vec2(0, 2))
@@ -444,8 +448,8 @@ end
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then state.open = not state.open end
   if not state.open then return end
-  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
-  ui.pushStyleColor(ui.StyleColor.Border, C.accent)
+  ui.pushStyleColor(ui.StyleColor.WindowBg, colors.bg)
+  ui.pushStyleColor(ui.StyleColor.Border, colors.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
   ui.toolWindow('acs_menu/main', vec2(150, 150), vec2(500, 700), false, true, drawMenu)
