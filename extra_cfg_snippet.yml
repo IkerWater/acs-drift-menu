@@ -1,0 +1,4 @@
+# Anade a extra_cfg.yml. Revisa los campos de configuracion en la
+# documentacion de VotingPresetPlugin de tu version de AssettoServer.
+EnablePlugins:
+  - VotingPresetPlugin
