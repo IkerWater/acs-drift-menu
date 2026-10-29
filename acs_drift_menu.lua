@@ -75,27 +75,99 @@ end
 
 -- CAMBIO VISUAL DE SKIN (solo cliente local)
 
-local skinList = {}
-local selectedSkin = 1
-local currentCarID = nil
-local skinMessage = ''
 
-local function refreshSkinList()
-  currentCarID = ac.getCarID(0)
+-- =========================================
+-- SKINS LOCALES: descubrimiento y aplicación
+-- =========================================
+
+local skinState = {
+  carID = nil,
+  skins = {},
+  selected = 1,
+  message = ''
+}
+
+local function loadLocalSkins(carID)
+  local carsPath = ac.getFolder(ac.FolderID.ContentCars)
+  local skinsPath = carsPath .. '/' .. carID .. '/skins'
+  local skins = {}
+
+  if not io.dirExists(skinsPath) then
+    return skins
+  end
+
+  local dirs = io.scanDir(skinsPath, '*') or {}
+
+  for _, name in ipairs(dirs) do
+    local skinPath = skinsPath .. '/' .. name
+
+    if io.dirExists(skinPath) then
+      local label = name
+      local skinJson = skinPath .. '/ui_skin.json'
+
+      -- El nombre visible es opcional:
+      -- si no existe ui_skin.json, usamos el nombre de carpeta.
+      if io.fileExists(skinJson) then
+        local ok, data = pcall(function()
+          return JSON.parse(io.load(skinJson, ''))
+        end)
+
+        if ok and type(data) == 'table'
+            and type(data.skinname) == 'string'
+            and data.skinname ~= '' then
+          label = data.skinname
+        end
+      end
+
+      skins[#skins + 1] = {
+        id = name,
+        label = label
+      }
+    end
+  end
+
+  table.sort(skins, function(a, b)
+    return a.label:lower() < b.label:lower()
+  end)
+
+  return skins
+end
+
+local function refreshLocalSkins()
+  local carID = ac.getCarID(0)
+
+  skinState.carID = carID
+  skinState.skins = loadLocalSkins(carID)
+  skinState.selected = 1
+  skinState.message = ''
+
+  -- Seleccionar inicialmente la skin oficial del coche.
   local currentSkinID = ac.getCarSkinID(0)
 
-  -- El script remoto no puede enumerar carpetas libremente.
-  -- De momento, esta lista debe venir de una fuente externa.
-  skinList = CONFIG.localSkins and CONFIG.localSkins[currentCarID] or {}
-
-  selectedSkin = 1
-  for i, skin in ipairs(skinList) do
-    if skin == currentSkinID then
-      selectedSkin = i
+  for i, skin in ipairs(skinState.skins) do
+    if skin.id == currentSkinID then
+      skinState.selected = i
       break
     end
   end
 end
+
+local function applyLocalSkin(skin)
+  local carID = ac.getCarID(0)
+  local skinPath = ac.getFolder(ac.FolderID.ContentCars)
+      .. '/' .. carID .. '/skins/' .. skin.id
+
+  local ok, err = pcall(function()
+    ac.findNodes('carRoot:0'):applySkin(skinPath)
+  end)
+
+  if ok then
+    skinState.message = 'Skin aplicada localmente: ' .. skin.label
+  else
+    skinState.message = 'Error al aplicar skin: ' .. tostring(err)
+  end
+end
+
 
 local function voteTrack(n) sendChatCommand(string.format(CONFIG.commands.vote, n)) end
 
@@ -163,40 +235,54 @@ local function tabSkin()
   header('CAMBIAR SKIN')
 
   local carID = ac.getCarID(0)
-  local currentSkinID = ac.getCarSkinID(0)
 
-  ui.text('Coche: ' .. tostring(carID))
-  ui.text('Skin actual: ' .. tostring(currentSkinID))
-  ui.separator()
-
-  if currentCarID ~= carID then
-    refreshSkinList()
+  -- Actualizar la lista cuando cambia el coche.
+  if skinState.carID ~= carID then
+    refreshLocalSkins()
   end
 
-  if #skinList == 0 then
-    ui.text('No hay skins en el catálogo.')
-    ui.text('Hace falta cargar la lista desde otra fuente.')
+  ui.text('Coche: ' .. tostring(carID))
+  ui.separator()
+
+  if #skinState.skins == 0 then
+    ui.text('No se han encontrado carpetas de skins.')
+    ui.text('Comprueba la ruta local del coche.')
+
+    if ui.button('RECARGAR SKINS', vec2(-0.1, 32)) then
+      refreshLocalSkins()
+    end
+
     return
   end
 
-  for i, skin in ipairs(skinList) do
-    if ui.selectable(skin, selectedSkin == i) then
-      selectedSkin = i
+  ui.text('Skins locales: ' .. #skinState.skins)
+
+  if ui.button('RECARGAR LISTA', vec2(-0.1, 28)) then
+    refreshLocalSkins()
+  end
+
+  ui.separator()
+
+  for i, skin in ipairs(skinState.skins) do
+    local label = skin.label .. '##skin_' .. skin.id
+
+    if ui.selectable(label, skinState.selected == i) then
+      skinState.selected = i
     end
   end
 
-  if ui.button('APLICAR SKIN', vec2(-0.1, 36)) then
-    local skin = skinList[selectedSkin]
-    local skinPath = ac.getFolder(ac.FolderID.ContentCars)
-      .. '/' .. carID .. '/skins/' .. skin
+  ui.separator()
 
-    local carNodes = ac.findNodes('carRoot:0')
-    carNodes:applySkin(skinPath)
-    skinMessage = 'Skin visual aplicada: ' .. skin
+  if ui.button('APLICAR SKIN', vec2(-0.1, 36)) then
+    local skin = skinState.skins[skinState.selected]
+
+    if skin then
+      applyLocalSkin(skin)
+    end
   end
 
-  if skinMessage ~= '' then
-    ui.text(skinMessage)
+  if skinState.message ~= '' then
+    ui.textWrapped(skinState.message)
   end
 end
 
