@@ -1,4 +1,4 @@
--- ACS Menu (Drift) - script ONLINE para CSP, v0.2
+-- ACS Drift by Water - script ONLINE para CSP, v0.4
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]).
 -- Tecla M: abrir/cerrar el menu.
 -- Lo marcado [VERIFICAR] no esta confirmado en la documentacion: si falla,
@@ -37,6 +37,10 @@ local state = {
   open = false, tab = 1, carIndex = 1, skinIndex = 1, hour = 12,
   message = '', messageTime = 0, savedPoint = nil,
 }
+
+-- Boton configurable para volver al punto guardado (se asigna en la pestana TP).
+-- El id debe ser unico; CSP guarda la asignacion por id.
+local returnButton = ac.ControlButton('__ACS_DRIFT_RETURN')
 
 local function notify(text)
   state.message, state.messageTime = text, os.clock()
@@ -187,7 +191,7 @@ end
 local function teleportToPoint()
   if not state.savedPoint then return notify('No hay punto guardado') end
   safe('Teleport', function()
-    physics.setCarPosition(0, state.savedPoint.pos, state.savedPoint.dir) -- [VERIFICAR]
+    physics.setCarPosition(0, state.savedPoint.pos, (state.savedPoint.dir * -1)) -- [VERIFICAR]
   end)
 end
 
@@ -195,6 +199,15 @@ local function teleportToPits()
   safe('Teleport a pits', function()
     physics.teleportCarTo(0, ac.SpawnSet.Pits) -- [VERIFICAR]
   end)
+end
+
+-- Escucha el boton de retorno aunque el menu este cerrado.
+function script.update(dt)
+  local sim = ac.getSim()
+  if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
+  if returnButton:pressed() then
+    teleportToPoint()
+  end
 end
 
 ------------------------------------------------------------------------
@@ -263,7 +276,7 @@ end
 
 local function tabs()
   local names = { 'Coche', 'Skin', 'Circuito', 'Hora', 'TP' }
-  local w = (ui.availableSpaceX() - 3 * 6) / 4
+  local w = (ui.availableSpaceX() - (#names - 1) * 6) / #names
   for i, n in ipairs(names) do
     if i > 1 then ui.sameLine(0, 6) end
     if styledButton(n, vec2(w, 30), state.tab == i) then state.tab = i end
@@ -338,7 +351,7 @@ local function tabSkin()
   ui.dummy(vec2(0, 8))
  
   if styledButton('APLICAR SKIN', vec2(-0.1, 38), true) then
-    local skin = skinState.skins[skinState.selected]
+    local skin = skinState.skins[{skinState.selected}]
     if skin then
       applyLocalSkin(skin)
     end
@@ -383,6 +396,17 @@ local function tabTeleport()
   if styledButton('Guardar punto actual', vec2(-0.1, 34), false) then savePoint() end
   if styledButton('Volver al punto guardado', vec2(-0.1, 34), true) then teleportToPoint() end
   if styledButton('Ir a pits', vec2(-0.1, 34), false) then teleportToPits() end
+
+  sectionTitle('Boton de retorno')
+  smallText('Asigna una tecla o boton para volver al punto guardado.')
+  ui.dummy(vec2(0, 4))
+  returnButton:control(vec2(ui.availableSpaceX(), 30))
+  ui.dummy(vec2(0, 2))
+  if returnButton:configured() then
+    smallText('Asignado a: ' .. tostring(returnButton:boundTo()), C.accentHi)
+  else
+    smallText('Sin asignar: pulsa el cuadro y luego la tecla/boton.')
+  end
 end
 
 local function drawStatus()
@@ -424,7 +448,7 @@ function script.drawUI(dt)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
-  ui.toolWindow('acs_menu/main', vec2(60, 120), vec2(360, 560), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(150, 150), vec2(500, 700), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
 end
