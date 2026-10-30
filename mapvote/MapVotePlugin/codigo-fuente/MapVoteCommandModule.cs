@@ -1,9 +1,11 @@
 using AssettoServer.Commands;
 using AssettoServer.Commands.Attributes;
+using JetBrains.Annotations;
 using Qmmands;
 
 namespace MapVotePlugin;
 
+[UsedImplicitly(ImplicitUseKindFlags.Access, ImplicitUseTargetFlags.WithMembers)]
 public class MapVoteCommandModule : ACModuleBase
 {
     private readonly MapVotePlugin _plugin;
@@ -33,4 +35,7 @@ public class MapVoteCommandModule : ACModuleBase
 
     [Command("mapreload"), RequireAdmin]
     public void Reload() => _plugin.Reload(Client!);
+
+    [Command("mapset"), RequireAdmin]
+    public void Set(int id) => _plugin.AdminSet(Client!, id);
 }
