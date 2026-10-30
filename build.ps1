@@ -25,7 +25,7 @@ $parts.Add('  end')
 $parts.Add('  return cached')
 $parts.Add('end')
 $parts.Add('')
-$parts.Add("local genDate = ($(Get-Date -Format 'yyyy-MM-dd HH:mm')).")
+$parts.Add("local genDate = '$(Get-Date -Format 'yyyy-MM-dd HH:mm')'")
 $parts.Add('')
 
 $files = Get-ChildItem $src -Recurse -Filter *.lua | ForEach-Object {
