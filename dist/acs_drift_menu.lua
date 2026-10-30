@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 01:05). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:24). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -293,9 +293,6 @@ M.returnButton = ac.ControlButton('__ACS_DRIFT_RETURN')
 
 function M.savePoint()
   local car = ac.getCar(0)
-  if not car or not car.position or not car.look then
-    return core.notify('No se pudo guardar el punto')
-  end
   core.state.savedPoint = { pos = car.position:clone(), dir = car.look:clone() }
   core.notify('Punto guardado')
 end
@@ -766,12 +763,11 @@ local menu = import('ui/menu')
 function script.update(dt)
   local sim = ac.getSim()
   if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
+  if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
 end
 
--- Callback de UI para scripts online [VERIFICAR el nombre en tu version de CSP:
--- si el menu no aparece, comprueba el log; alternativas habituales: script.drawUI / script.update]
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
   if not core.state.open then return end
