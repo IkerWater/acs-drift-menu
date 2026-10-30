@@ -29,7 +29,7 @@ public class MapVoteConfiguration : IValidateConfiguration<MapVoteConfigurationV
     [YamlMember(Description = "Reconectar a los jugadores automáticamente (requiere EnableClientMessages); si es false se les expulsa con un aviso")]
     public bool EnableReconnect { get; init; } = true;
 
-    [YamlMember(Description = "Además de la configuración en uso, cambiar el circuito en cfg/ y en todos los presets")]
+    [YamlMember(Description = "Además de cfg/, cambiar el circuito en todos los presets (por defecto los presets no se tocan)")]
     public bool ApplyToAllPresets { get; init; } = false;
 
     [YamlMember(Description = "Carpetas de circuito que no deben aparecer en la lista")]

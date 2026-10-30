@@ -360,7 +360,20 @@ public class MapVotePlugin : BackgroundService
         // Se escribe el nombre de carpeta tal cual: AssettoServer añade él mismo el prefijo "csp/<versión>/../"
         var newTrack = entry.Track;
 
-        var targets = new List<string> { Path.Join(_serverConfig.BaseFolder, "server_cfg.ini") };
+        // Nunca se modifica un preset: el cambio va a la configuración de arranque (cfg/).
+        // Si ahora mismo está en pista un preset (lo cargó la votación entre presets), se copia
+        // su server_cfg.ini a cfg/ para conservar su clima y reglas, y se reinicia desde cfg/.
+        var startupCfg = Path.GetFullPath(Path.Join("cfg", "server_cfg.ini"));
+        var runningCfg = Path.GetFullPath(Path.Join(_serverConfig.BaseFolder, "server_cfg.ini"));
+        var fromPreset = !string.Equals(startupCfg, runningCfg, StringComparison.Ordinal);
+        if (fromPreset && File.Exists(runningCfg))
+        {
+            File.Copy(runningCfg, startupCfg + ".tmp", true);
+            File.Move(startupCfg + ".tmp", startupCfg, true);
+            Log.Information("MapVote: copiado {From} a cfg/ (el preset no se modifica)", runningCfg);
+        }
+
+        var targets = new List<string> { startupCfg };
         if (_config.ApplyToAllPresets)
         {
             targets.Add(Path.Join("cfg", "server_cfg.ini"));
@@ -391,7 +404,7 @@ public class MapVotePlugin : BackgroundService
         await Task.Delay(Math.Max(1, _config.TransitionSeconds - 1) * 1000, token);
         Log.Information("MapVote: reiniciando el servidor con {Name}", entry.Name);
         Program.RestartServer(
-            _serverConfig.Preset,
+            fromPreset ? null : _serverConfig.Preset,
             portOverrides: new PortOverrides
             {
                 TcpPort = _serverConfig.Server.TcpPort,

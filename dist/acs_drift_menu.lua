@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-30 16:54).
+-- GENERADO EL (2026-10-30 17:05).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-30 16:54'
+local genDate = '2026-10-30 17:05'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -401,7 +401,7 @@ local function drawMenu()
     if core.state.tab == t.id then t.draw() break end
   end
   drawStatus()
-  ui.dummy(vec2(0, ui.availableSpaceY() - 32))
+  ui.dummy(vec2(0, ui.availableSpaceY() - 64))
   ui.newLine()
   ui.textAligned(' [M] para cerrar | ACS Drift by Water | ' .. genDate, vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
 end
@@ -411,7 +411,7 @@ function M.drawWindow()
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
-  ui.toolWindow('acs_menu/main', vec2(250, 150), vec2(500, 725), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(250, 150), vec2(500, 750), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
 end

@@ -23,7 +23,6 @@ ac.OnlineEvent({
 end)
 
 -- ---------------------------------------------------------------- acciones hacia el servidor
----@diagnostic disable-next-line: missing-parameter
 local actionEvent = ac.OnlineEvent({
   ac.StructItem.key('ACP_MapVoteAction'),
   action = ac.StructItem.uint8(),
