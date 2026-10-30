@@ -6,12 +6,12 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 return function()
   local returnButton = teleport.returnButton
 
-  sectionTitle('Reaparicion / TP')
+  sectionTitle('Reaparicion / TP', C.accentHi)
   if styledButton('Guardar punto actual', vec2(-0.1, 34), false) then teleport.savePoint() end
   if styledButton('Volver al punto guardado', vec2(-0.1, 34), false) then teleport.teleportToPoint() end
   if styledButton('Ir a pits', vec2(-0.1, 34), false) then teleport.teleportToPits() end
 
-  sectionTitle('Boton de retorno')
+  sectionTitle('Boton de retorno', C.accentHi)
   smallText('Asigna una tecla o boton para volver al punto guardado.')
   ui.dummy(vec2(0, 4))
   returnButton:control(vec2(ui.availableSpaceX(), 30))

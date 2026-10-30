@@ -7,7 +7,7 @@ local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
 return function()
   local state = core.state
 
-  sectionTitle('Hora del dia')
+  sectionTitle('Hora del dia', C.accentHi)
   ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
   ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
   ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)

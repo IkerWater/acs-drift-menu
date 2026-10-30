@@ -5,7 +5,7 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 
 return function()
   local skinState = skin.state
-  sectionTitle('Cambiar skin')
+  sectionTitle('Cambiar skin', C.accentHi)
 
   local carID = ac.getCarID(0)
 

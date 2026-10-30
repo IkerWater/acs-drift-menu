@@ -9,7 +9,7 @@ local mapvote = mv.data
 return function()
   local st = mapvote.status
 
-  sectionTitle('Mapa actual')
+  sectionTitle('Mapa actual', C.accentHi)
   if st and st.current then
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.current.name)
@@ -22,14 +22,14 @@ return function()
 
   -- Cambio aprobado: cuenta atras
   if st and st.changing then
-    sectionTitle('Cambiando de circuito')
+    sectionTitle('Cambiando de circuito', C.accentHi)
     smallText(string.format('El servidor se reinicia en %d s. Vuelve a entrar al servidor.', st.changeInSeconds or 0), C.accentHi)
     return
   end
 
   -- Votacion en curso
   if st and st.active and st.proposal then
-    sectionTitle('Votacion en curso')
+    sectionTitle('Votacion en curso', C.accentHi)
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.proposal.name)
     ui.popFont()
@@ -49,7 +49,7 @@ return function()
 
   -- Sin votacion: elegir mapa y proponer
   local cooldown = st and st.cooldownLeft or 0
-  sectionTitle('Proponer cambio de mapa')
+  sectionTitle('Proponer cambio de mapa', C.accentHi)
   if cooldown > 0 then
     smallText(string.format('Podras iniciar otra votacion en %d s', cooldown), C.accentHi)
   end

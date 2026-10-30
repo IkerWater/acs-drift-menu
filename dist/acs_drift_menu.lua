@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:39). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:47). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -423,18 +423,18 @@ local CONFIG = import('config')
 local core = import('core')
 local car = import('features/car')
 local T = import('ui/theme')
-local sectionTitle, styledButton = T.sectionTitle, T.styledButton
+local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
 
 return function()
   local state = core.state
 
-  sectionTitle('Coche')
+  sectionTitle('Coche', C.accentHi)
   for i, c in ipairs(CONFIG.cars) do
     if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
       state.carIndex, state.skinIndex = i, 1
     end
   end
-  sectionTitle('Skin')
+  sectionTitle('Skin', C.accentHi)
   for i, s in ipairs(CONFIG.cars[state.carIndex].skins) do
     if styledButton(s, vec2(-0.1, 28), state.skinIndex == i) then state.skinIndex = i end
   end
@@ -454,7 +454,7 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 
 return function()
   local skinState = skin.state
-  sectionTitle('Cambiar skin')
+  sectionTitle('Cambiar skin', C.accentHi)
 
   local carID = ac.getCarID(0)
 
@@ -528,12 +528,12 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 return function()
   local returnButton = teleport.returnButton
 
-  sectionTitle('Reaparicion / TP')
+  sectionTitle('Reaparicion / TP', C.accentHi)
   if styledButton('Guardar punto actual', vec2(-0.1, 34), false) then teleport.savePoint() end
   if styledButton('Volver al punto guardado', vec2(-0.1, 34), false) then teleport.teleportToPoint() end
   if styledButton('Ir a pits', vec2(-0.1, 34), false) then teleport.teleportToPits() end
 
-  sectionTitle('Boton de retorno')
+  sectionTitle('Boton de retorno', C.accentHi)
   smallText('Asigna una tecla o boton para volver al punto guardado.')
   ui.dummy(vec2(0, 4))
   returnButton:control(vec2(ui.availableSpaceX(), 30))
@@ -557,7 +557,7 @@ local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
 return function()
   local state = core.state
 
-  sectionTitle('Hora del dia')
+  sectionTitle('Hora del dia', C.accentHi)
   ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
   ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
   ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)
@@ -584,7 +584,7 @@ local mapvote = mv.data
 return function()
   local st = mapvote.status
 
-  sectionTitle('Mapa actual')
+  sectionTitle('Mapa actual', C.accentHi)
   if st and st.current then
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.current.name)
@@ -597,14 +597,14 @@ return function()
 
   -- Cambio aprobado: cuenta atras
   if st and st.changing then
-    sectionTitle('Cambiando de circuito')
+    sectionTitle('Cambiando de circuito', C.accentHi)
     smallText(string.format('El servidor se reinicia en %d s. Vuelve a entrar al servidor.', st.changeInSeconds or 0), C.accentHi)
     return
   end
 
   -- Votacion en curso
   if st and st.active and st.proposal then
-    sectionTitle('Votacion en curso')
+    sectionTitle('Votacion en curso', C.accentHi)
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.proposal.name)
     ui.popFont()
@@ -624,7 +624,7 @@ return function()
 
   -- Sin votacion: elegir mapa y proponer
   local cooldown = st and st.cooldownLeft or 0
-  sectionTitle('Proponer cambio de mapa')
+  sectionTitle('Proponer cambio de mapa', C.accentHi)
   if cooldown > 0 then
     smallText(string.format('Podras iniciar otra votacion en %d s', cooldown), C.accentHi)
   end
@@ -727,9 +727,9 @@ function M.styledButton(label, size, selected, disabled)
   return pressed and not disabled
 end
 
-function M.sectionTitle(text)
+function M.sectionTitle(text, color)
   ui.dummy(vec2(0, 4))
-  M.smallText(string.upper(text), C.accent)
+  M.smallText(string.upper(text), color or C.accent)
   ui.dummy(vec2(0, 2))
 end
 

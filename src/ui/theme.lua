@@ -42,9 +42,9 @@ function M.styledButton(label, size, selected, disabled)
   return pressed and not disabled
 end
 
-function M.sectionTitle(text)
+function M.sectionTitle(text, color)
   ui.dummy(vec2(0, 4))
-  M.smallText(string.upper(text), C.accent)
+  M.smallText(string.upper(text), color or C.accent)
   ui.dummy(vec2(0, 2))
 end
 
