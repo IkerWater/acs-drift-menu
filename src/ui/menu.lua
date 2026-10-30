@@ -16,8 +16,8 @@ local M = {}
 
 local function header()
   ui.dummy(vec2(0, 2))
-  ui.dwriteTextAligned('ACS DRIFT', 40, ui.Alignment.Center, ui.Alignment.Center,
-      vec2(ui.availableSpaceX(), 45), false, C.text)
+  ui.dwriteTextAligned('ACS DRIFT', 35, ui.Alignment.Center, ui.Alignment.Center,
+      vec2(ui.availableSpaceX(), 35), false, C.text)
   ui.dwriteTextAligned('by Water', 20, ui.Alignment.End, ui.Alignment.Center,
       vec2(ui.availableSpaceX(), 25), false, C.accentHi)
   ui.dummy(vec2(0, 6))
