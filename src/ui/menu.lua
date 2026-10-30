@@ -57,7 +57,7 @@ local function drawMenu()
     if core.state.tab == t.id then t.draw() break end
   end
   drawStatus()
-  ui.setCursorY(ui.getWindowHeight() - 28)
+  ui.dummy(vec2(0, 8))
   ui.textAligned(' [M] para cerrar | ACS Drift by Water', ui.Alignment.Center)
 end
 
