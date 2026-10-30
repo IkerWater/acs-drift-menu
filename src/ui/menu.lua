@@ -67,7 +67,7 @@ function M.drawWindow()
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
-  ui.toolWindow('acs_menu/main', vec2(250, 150), vec2(500, 750), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(250, 150), vec2(500, 725), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
 end
