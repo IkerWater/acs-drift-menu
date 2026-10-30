@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 15:47). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 15:50). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -408,7 +408,7 @@ function M.drawWindow()
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
-  ui.toolWindow('acs_menu/main', vec2(150, 150), vec2(500, 700), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(200, 150), vec2(500, 720), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
 end
