@@ -10,13 +10,13 @@ return function()
 
   sectionTitle('Coche', C.accentHi)
   for i, c in ipairs(CONFIG.cars) do
-    if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
+    if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i, false, true) then
       state.carIndex, state.skinIndex = i, 1
     end
   end
   sectionTitle('Skin', C.accentHi)
   for i, s in ipairs(CONFIG.cars[state.carIndex].skins) do
-    if styledButton(s, vec2(-0.1, 28), state.skinIndex == i) then state.skinIndex = i end
+    if styledButton(s, vec2(-0.1, 28), state.skinIndex == i, false, true) then state.skinIndex = i end
   end
   ui.dummy(vec2(0, 8))
   if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then

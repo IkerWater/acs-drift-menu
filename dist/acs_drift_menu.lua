@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:47). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 14:36). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -430,13 +430,13 @@ return function()
 
   sectionTitle('Coche', C.accentHi)
   for i, c in ipairs(CONFIG.cars) do
-    if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
+    if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i, false, true) then
       state.carIndex, state.skinIndex = i, 1
     end
   end
   sectionTitle('Skin', C.accentHi)
   for i, s in ipairs(CONFIG.cars[state.carIndex].skins) do
-    if styledButton(s, vec2(-0.1, 28), state.skinIndex == i) then state.skinIndex = i end
+    if styledButton(s, vec2(-0.1, 28), state.skinIndex == i, false, true) then state.skinIndex = i end
   end
   ui.dummy(vec2(0, 8))
   if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then
@@ -715,10 +715,12 @@ function M.smallText(text, color)
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
-function M.styledButton(label, size, selected, disabled)
+function M.styledButton(label, size, selected, disabled, noHover)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
   ui.pushStyleColor(ui.StyleColor.Button,        selected and C.accent   or C.surface)
-  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
+  if noHover then
+    ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
+  end
   ui.pushStyleColor(ui.StyleColor.ButtonActive,  C.accent)
   ui.pushStyleColor(ui.StyleColor.Text,          C.text)
   local pressed = ui.button(label, size, disabled and ui.ButtonFlags.Disabled or 0)
