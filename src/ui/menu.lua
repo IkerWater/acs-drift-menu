@@ -58,7 +58,7 @@ local function drawMenu()
   end
   drawStatus()
   ui.dummy(vec2(0, 10))
-  ui.textAligned('ACS Drift by Water   |   M para cerrar', vec2(1, 1), vec2(0.5, 0.5))
+  ui.textAligned('ACS Drift by Water   |   M para cerrar', ui.Alignment.Center, ui.Alignment.End)
 end
 
 function M.drawWindow()
