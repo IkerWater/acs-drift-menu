@@ -8,7 +8,8 @@ local menu = import('ui/menu')
 function script.update(dt)
   local sim = ac.getSim()
   if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
-  if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
+  --Comentado el cierre automatico del menu hasta implementar el toggle en el tab settings
+  --if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
 end

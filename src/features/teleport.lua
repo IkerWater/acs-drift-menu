@@ -9,6 +9,9 @@ M.returnButton = ac.ControlButton('__ACS_DRIFT_RETURN')
 
 function M.savePoint()
   local car = ac.getCar(0)
+  if not car or not car.position or not car.look then
+    return core.notify('No se pudo guardar el punto')
+  end
   core.state.savedPoint = { pos = car.position:clone(), dir = car.look:clone() }
   core.notify('Punto guardado')
 end

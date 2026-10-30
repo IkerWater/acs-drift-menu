@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-30 17:05).
+-- GENERADO EL (2026-10-30 17:20).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-30 17:05'
+local genDate = '2026-10-30 17:20'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -295,6 +295,9 @@ M.returnButton = ac.ControlButton('__ACS_DRIFT_RETURN')
 
 function M.savePoint()
   local car = ac.getCar(0)
+  if not car or not car.position or not car.look then
+    return core.notify('No se pudo guardar el punto')
+  end
   core.state.savedPoint = { pos = car.position:clone(), dir = car.look:clone() }
   core.notify('Punto guardado')
 end
@@ -766,7 +769,8 @@ local menu = import('ui/menu')
 function script.update(dt)
   local sim = ac.getSim()
   if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
-  if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
+  --Comentado el cierre automatico del menu hasta implementar el toggle en el tab settings
+  --if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
 end
