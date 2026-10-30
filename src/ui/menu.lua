@@ -58,7 +58,7 @@ local function drawMenu()
   end
   drawStatus()
   ui.setCursorY(ui.getWindowHeight() - 28)
-  ui.textAligned('ACS Drift by Water   |   M para cerrar', ui.Alignment.Center)
+  ui.textAligned(' [M] para cerrar | ACS Drift by Water', ui.Alignment.Center)
 end
 
 function M.drawWindow()
