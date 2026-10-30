@@ -57,7 +57,7 @@ local function drawMenu()
     if core.state.tab == t.id then t.draw() break end
   end
   drawStatus()
-  --ui.dummy(vec2(0, ui.availableSpaceY() - 32))
+  ui.dummy(vec2(0, ui.availableSpaceY() - 32))
   ui.newLine()
   ui.textAligned(' [M] para cerrar | ACS Drift by Water | ' .. genDate, vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
 end
