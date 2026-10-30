@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 16:08). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 16:10). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -399,7 +399,7 @@ local function drawMenu()
     if core.state.tab == t.id then t.draw() break end
   end
   drawStatus()
-  ui.dummy(vec2(0, 8))
+  ui.dummy(vec2(0, ui.availableSpaceY() - 32))
   ui.textAligned(' [M] para cerrar | ACS Drift by Water', vec2(0.5, 1))
 end
 
