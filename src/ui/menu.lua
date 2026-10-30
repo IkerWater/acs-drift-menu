@@ -17,8 +17,8 @@ local M = {}
 
 local function header()
   ui.dummy(vec2(0, 2))
-  bigText('ACS DRIFT', 26, C.text)
-  smallText('by Water', C.accentHi)
+  alignedText(bigText('ACS DRIFT', 26, C.text), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  alignedText(smallText('by Water', C.accentHi), vec2(1, 0.5), vec2(ui.availableSpaceX(), 32))
   ui.dummy(vec2(0, 6))
   accentLine()
 end

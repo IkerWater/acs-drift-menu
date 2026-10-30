@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-30 17:20).
+-- GENERADO EL (2026-10-30 17:30).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-30 17:20'
+local genDate = '2026-10-30 17:30'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -364,8 +364,8 @@ local M = {}
 
 local function header()
   ui.dummy(vec2(0, 2))
-  bigText('ACS DRIFT', 26, C.text)
-  smallText('by Water', C.accentHi)
+  alignedText(bigText('ACS DRIFT', 26, C.text), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  alignedText(smallText('by Water', C.accentHi), vec2(1, 0.5), vec2(ui.availableSpaceX(), 32))
   ui.dummy(vec2(0, 6))
   accentLine()
 end
