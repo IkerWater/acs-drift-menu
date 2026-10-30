@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:24). No lo edites: edita src/.
+-- ARCHIVO GENERADO por build.ps1 (2026-10-30 13:39). No lo edites: edita src/.
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -688,12 +688,12 @@ local M = {}
 
 M.C = {
   bg        = rgbm(0.045, 0.045, 0.070, 0.96),
-  surface   = rgbm(0.100, 0.100, 0.150, 1),
-  surfaceHi = rgbm(0.150, 0.140, 0.220, 1),
-  accent    = rgbm(0.62, 0.36, 1.00, 1),
-  accentHi  = rgbm(0.74, 0.50, 1.00, 1),
-  text      = rgbm(0.94, 0.94, 0.98, 1),
-  dim       = rgbm(0.58, 0.58, 0.70, 1),
+  surface   = rgbm(0.100, 0.100, 0.150, 1.00),
+  surfaceHi = rgbm(0.150, 0.140, 0.220, 1.00),
+  accent    = rgbm(0.120, 0.500, 0.280, 0.80),
+  accentHi  = rgbm(0.250, 0.950, 0.480, 1.00),
+  text      = rgbm(0.920, 0.950, 0.925, 1.00),
+  dim       = rgbm(0.620, 0.680, 0.635, 1.00),
 }
 local C = M.C
 
