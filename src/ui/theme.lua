@@ -30,12 +30,10 @@ function M.smallText(text, color)
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
-function M.styledButton(label, size, selected, disabled, noHover)
+function M.styledButton(label, size, selected, disabled)
   ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
   ui.pushStyleColor(ui.StyleColor.Button,        selected and C.accent   or C.surface)
-  if noHover then
-    ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
-  end
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, selected and C.accentHi or C.surfaceHi)
   ui.pushStyleColor(ui.StyleColor.ButtonActive,  C.accent)
   ui.pushStyleColor(ui.StyleColor.Text,          C.text)
   local pressed = ui.button(label, size, disabled and ui.ButtonFlags.Disabled or 0)
