@@ -20,6 +20,6 @@ return function()
   end
   ui.dummy(vec2(0, 8))
   if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then
-    car.changeCar(state.carIndex, state.skinIndex)
+    car.changeCar(state.carIndex)
   end
 end
