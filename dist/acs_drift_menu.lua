@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:06).
+-- GENERADO EL (2026-10-31 12:20).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:06'
+local genDate = '2026-10-31 12:20'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -351,8 +351,15 @@ function M.setTimeOfDay(hour)
     local targetSeconds = (hour % 24) * 3600
     local offset = (targetSeconds - currentSeconds + 43200) % 86400 - 43200
 
-    if ac.setWeatherExactUTC0Timestamp then
-      local timestamp = ac.getTrackDateTime() + offset
+    local trackTimestamp
+    if ac.getTrackDateTime then
+      trackTimestamp = ac.getTrackDateTime()
+    elseif type(sim.timestamp) == 'number' and sim.timestamp > 0 then
+      trackTimestamp = sim.timestamp
+    end
+
+    if ac.setWeatherExactUTC0Timestamp and trackTimestamp then
+      local timestamp = trackTimestamp + offset
       ac.setWeatherExactUTC0Timestamp(timestamp, false)
     elseif not sim.isOnlineRace and ac.setWeatherTimeOffset then
       ac.setWeatherTimeOffset(offset, true)

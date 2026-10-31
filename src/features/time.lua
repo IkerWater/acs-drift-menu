@@ -14,8 +14,15 @@ function M.setTimeOfDay(hour)
     local targetSeconds = (hour % 24) * 3600
     local offset = (targetSeconds - currentSeconds + 43200) % 86400 - 43200
 
-    if ac.setWeatherExactUTC0Timestamp then
-      local timestamp = ac.getTrackDateTime() + offset
+    local trackTimestamp
+    if ac.getTrackDateTime then
+      trackTimestamp = ac.getTrackDateTime()
+    elseif type(sim.timestamp) == 'number' and sim.timestamp > 0 then
+      trackTimestamp = sim.timestamp
+    end
+
+    if ac.setWeatherExactUTC0Timestamp and trackTimestamp then
+      local timestamp = trackTimestamp + offset
       ac.setWeatherExactUTC0Timestamp(timestamp, false)
     elseif not sim.isOnlineRace and ac.setWeatherTimeOffset then
       ac.setWeatherTimeOffset(offset, true)
