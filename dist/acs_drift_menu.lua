@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 13:47).
+-- GENERADO EL (2026-10-31 13:51).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 13:47'
+local genDate = '2026-10-31 13:51'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -22,14 +22,14 @@ __modules['config'] = function()
 return {
   toggleKey = ui.KeyIndex.M,
 
-  -- Coches ofrecidos ('id' = carpeta del coche, 'skins' = carpetas de skin).
+  -- Coches ofrecidos ('id' = carpeta del coche).
   -- Deben existir como entradas en el entry_list del servidor.
   cars = {
-    { id = 'tunermnrcars_eskuko_missile_e36coupe',   name = 'Eskuko Missile E36 Coupe',   skins = { 'default', 'Titanio' } },
-    { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact', skins = { 'default', 'JulenArjona' } },
+    { id = 'tunermnrcars_eskuko_missile_e36coupe',   name = 'Eskuko Missile E36 Coupe' },
+    { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact' },
   },
 
-  -- Datos del servidor para reconectar (cambio de coche/skin). Dejando host y password vacios reconecta con los datos que tenia.
+  -- Datos opcionales del servidor para reconectar. Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
   -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
@@ -49,7 +49,7 @@ local M = {}
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
-  carIndex = 1, skinIndex = 1,
+  carIndex = 1,
   message = '', messageTime = 0,
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
@@ -567,12 +567,8 @@ return function()
   sectionTitle('Coche', C.accentHi)
   for i, c in ipairs(CONFIG.cars) do
     if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
-      state.carIndex, state.skinIndex = i, 1
+      state.carIndex = i
     end
-  end
-  sectionTitle('Skin', C.accentHi)
-  for i, s in ipairs(CONFIG.cars[state.carIndex].skins) do
-    if styledButton(s, vec2(-0.1, 28), state.skinIndex == i) then state.skinIndex = i end
   end
   ui.dummy(vec2(0, 8))
   if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then
