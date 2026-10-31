@@ -61,7 +61,7 @@ return function()
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')
-  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.15, 1.0, 'Opacidad: %.2f')
+  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, 'Opacidad: %.2f')
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)

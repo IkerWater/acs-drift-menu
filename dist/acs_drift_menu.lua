@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 03:16).
+-- GENERADO EL (2026-10-31 03:34).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 03:16'
+local genDate = '2026-10-31 03:34'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -56,7 +56,7 @@ M.state = {
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
   settings = {
     accentIndex = 1,   -- indice en T.ACCENTS
-    bgAlpha     = 0.96,
+    bgAlpha     = 0.15,
     closeOnGas  = true,  -- cerrar el menu al acelerar (ver main.lua)
     posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
     posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
@@ -582,7 +582,7 @@ return function()
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')
-  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.15, 1.0, 'Opacidad: %.2f')
+  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, 'Opacidad: %.2f')
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
@@ -860,8 +860,8 @@ M.ACCENTS = {
   { name = 'Verde',   c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
   { name = 'Morado',  c = rgbm(0.360, 0.200, 0.620, 0.80), hi = rgbm(0.620, 0.400, 1.000, 1.00) },
   { name = 'Naranja', c = rgbm(0.620, 0.320, 0.100, 0.80), hi = rgbm(1.000, 0.600, 0.250, 1.00) },
-  { name = 'Cian',    c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
-  { name = 'Rojo',    c = rgbm(0.550, 0.140, 0.180, 0.80), hi = rgbm(1.000, 0.350, 0.400, 1.00) },
+  { name = 'Azul',    c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
+  { name = 'Rojo',    c = rgbm(0.600, 0.100, 0.100, 0.80), hi = rgbm(1.000, 0.200, 0.200, 1.00) },
 }
 
 function M.applyAccent(index)
@@ -870,7 +870,7 @@ function M.applyAccent(index)
 end
 
 function M.applyBgAlpha(alpha)
-  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.15, math.min(1.0, alpha)))
+  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.01, math.min(1.0, alpha)))
 end
 
 -- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).
