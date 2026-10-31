@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 13:51).
+-- GENERADO EL (2026-10-31 23:41).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 13:51'
+local genDate = '2026-10-31 23:41'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -22,12 +22,10 @@ __modules['config'] = function()
 return {
   toggleKey = ui.KeyIndex.M,
 
-  -- Coches ofrecidos ('id' = carpeta del coche).
-  -- Deben existir como entradas en el entry_list del servidor.
-  cars = {
-    { id = 'tunermnrcars_eskuko_missile_e36coupe',   name = 'Eskuko Missile E36 Coupe' },
-    { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact' },
-  },
+  -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
+  -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
+  -- MapVotePlugin/CarListController). Para anadir o quitar coches, cambia el
+  -- entry_list del preset/servidor; el menu lo recoge solo.
 
   -- Datos opcionales del servidor para reconectar. Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
@@ -49,7 +47,7 @@ local M = {}
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
-  carIndex = 1,
+  carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
@@ -84,20 +82,52 @@ end
 
 -- ===== modulo: features/car (src/features/car.lua) =====
 __modules['features/car'] = function()
--- Cambio de coche/skin por reconexion al servidor.
+-- Cambio de coche: la lista ya no se edita a mano (CONFIG.cars); se lee del
+-- entry list real del servidor via MapVotePlugin (/cars/list), con cuantas
+-- plazas de cada coche estan libres ahora mismo. El cambio sigue siendo una
+-- reconexion (ac.reconnectTo): el servidor asigna la plaza libre que toque.
 local CONFIG = import('config')
 local core = import('core')
+local net = import('net')
 
 local M = {}
 
-function M.changeCar(carIdx)
-  local car = CONFIG.cars[carIdx]
-  if not car then
+local state = {
+  list = {}, status = 'idle',   -- idle | loading | ok | error
+  pollTimer = 0,
+}
+M.data = state
+
+function M.refresh()
+  state.status = 'loading'
+  net.getJson('/cars/list', function(data, err)
+    if data then
+      state.list, state.status = data, 'ok'
+    else
+      state.status = 'error'
+      core.notify('Lista de coches: ' .. tostring(err))
+    end
+  end)
+end
+
+-- active = true cuando la pestana de coche esta visible (decide la UI, no este modulo).
+function M.update(dt, active)
+  if not active then return end
+  if state.status == 'idle' then M.refresh() end
+  state.pollTimer = state.pollTimer - dt
+  if state.pollTimer <= 0 then
+    state.pollTimer = 4 -- las plazas libres cambian poco: no hace falta sondear tan rapido como el mapa
+    M.refresh()
+  end
+end
+
+function M.changeCar(carID)
+  if not carID or carID == '' then
     core.notify('No se ha podido cambiar de coche: seleccion no valida.')
     return false
   end
 
-  local params = { carID = car.id }
+  local params = { carID = carID }
   if CONFIG.server.host ~= '' then
     params.serverIP = CONFIG.server.host
     params.serverPort = CONFIG.server.port
@@ -119,6 +149,7 @@ __modules['features/mapvote'] = function()
 -- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
 local CONFIG = import('config')
 local core = import('core')
+local net = import('net')
 
 local M = {}
 
@@ -131,36 +162,9 @@ local mapvote = {
 }
 M.data = mapvote
 
-local function serverBaseUrl()
-  local host, port = CONFIG.server.host, CONFIG.server.httpPort
-  if ac.getServerIP then
-    local ok, v = pcall(ac.getServerIP)
-    if ok and v and v ~= '' then host = v end
-  end
-  if ac.getServerHTTPPort then
-    local ok, v = pcall(ac.getServerHTTPPort)
-    if ok and v and v > 0 then port = v end
-  end
-  return string.format('http://%s:%d', host, port)
-end
-
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
-local function httpGetJson(path, callback)
-  local ok, err = pcall(function()
-    web.get(serverBaseUrl() .. path, function(e, response)
-      if e or not response or response.status ~= 200 then
-        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
-      end
-      local parsedOk, data = pcall(JSON.parse, response.body)
-      if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
-    end)
-  end)
-  if not ok then callback(nil, tostring(err)) end
-end
-
 function M.loadTracks()
   mapvote.tracksState = 'loading'
-  httpGetJson('/mapvote/tracks', function(data, err)
+  net.getJson('/mapvote/tracks', function(data, err)
     if data then
       mapvote.tracks, mapvote.tracksState = data, 'ok'
     else
@@ -171,7 +175,7 @@ function M.loadTracks()
 end
 
 local function pollStatus()
-  httpGetJson('/mapvote/status', function(data, err)
+  net.getJson('/mapvote/status', function(data, err)
     mapvote.status, mapvote.statusError = data, err
     if data and not data.active then mapvote.myVote, mapvote.myVoteFor = nil, nil end
   end)
@@ -393,6 +397,45 @@ end
 return M
 end
 
+-- ===== modulo: net (src/net.lua) =====
+__modules['net'] = function()
+-- Peticiones HTTP al API del servidor (MapVotePlugin: /mapvote/*, /cars/*).
+-- Modulo compartido: cualquier feature consulta al servidor sin reimplementar
+-- la URL base ni el parseo de JSON.
+local CONFIG = import('config')
+
+local M = {}
+
+function M.serverBaseUrl()
+  local host, port = CONFIG.server.host, CONFIG.server.httpPort
+  if ac.getServerIP then
+    local ok, v = pcall(ac.getServerIP)
+    if ok and v and v ~= '' then host = v end
+  end
+  if ac.getServerHTTPPort then
+    local ok, v = pcall(ac.getServerHTTPPort)
+    if ok and v and v > 0 then port = v end
+  end
+  return string.format('http://%s:%d', host, port)
+end
+
+-- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
+function M.getJson(path, callback)
+  local ok, err = pcall(function()
+    web.get(M.serverBaseUrl() .. path, function(e, response)
+      if e or not response or response.status ~= 200 then
+        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
+      end
+      local parsedOk, data = pcall(JSON.parse, response.body)
+      if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
+    end)
+  end)
+  if not ok then callback(nil, tostring(err)) end
+end
+
+return M
+end
+
 -- ===== modulo: ui/menu (src/ui/menu.lua) =====
 __modules['ui/menu'] = function()
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
@@ -554,25 +597,64 @@ end
 
 -- ===== modulo: ui/tabs/car (src/ui/tabs/car.lua) =====
 __modules['ui/tabs/car'] = function()
--- Pestana: cambio de coche.
-local CONFIG = import('config')
+-- Pestana: cambio de coche (lista de plazas libres leida del servidor).
 local core = import('core')
-local car = import('features/car')
+local carFeat = import('features/car')
 local T = import('ui/theme')
-local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
+local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
+
+local cars = carFeat.data
 
 return function()
   local state = core.state
 
   sectionTitle('Coche', C.accentHi)
-  for i, c in ipairs(CONFIG.cars) do
-    if styledButton(c.name, vec2(-0.1, 32), state.carIndex == i) then
-      state.carIndex = i
-    end
+
+  if cars.status == 'loading' and #cars.list == 0 then
+    smallText('Consultando coches disponibles...')
+    return
+  elseif cars.status == 'error' and #cars.list == 0 then
+    smallText('No se pudo consultar el servidor.')
+    ui.dummy(vec2(0, 4))
+    if styledButton('REINTENTAR', vec2(-0.1, 32), true) then carFeat.refresh() end
+    return
+  elseif #cars.list == 0 then
+    smallText('El servidor no tiene coches configurados en el entry list.')
+    return
   end
+
+  -- Si la seleccion previa ya no existe en la lista (cambio de preset, etc.), se olvida.
+  local selected
+  for _, c in ipairs(cars.list) do
+    if c.id == state.carID then selected = c break end
+  end
+  if not selected then state.carID = nil end
+
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+  ui.childWindow('acs_car_list', vec2(-0.1, 220), false, function()
+    for _, c in ipairs(cars.list) do
+      local label = string.format('%s  (%d/%d libres)##car_%s', c.name, c.free, c.total, c.id)
+      if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then
+        state.carID = c.id
+      end
+    end
+  end)
+  ui.popStyleVar(1)
+  ui.popStyleColor(1)
+
+  ui.dummy(vec2(0, 6))
+  if styledButton('Recargar lista', vec2(-0.1, 26), false) then carFeat.refresh() end
   ui.dummy(vec2(0, 8))
-  if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true) then
-    car.changeCar(state.carIndex)
+
+  local canApply = selected ~= nil and selected.free > 0
+  if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true, not canApply) then
+    carFeat.changeCar(state.carID)
+  end
+  if selected and selected.free <= 0 then
+    smallText('Ese coche no tiene plazas libres ahora mismo.')
+  elseif not selected then
+    smallText('Elige un coche de la lista.')
   end
 end
 end
@@ -981,6 +1063,7 @@ local CONFIG = import('config')
 local core = import('core')
 local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
+local car = import('features/car')
 local menu = import('ui/menu')
 
 function script.update(dt)
@@ -993,6 +1076,7 @@ function script.update(dt)
   end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
+  car.update(dt, core.state.open and core.state.tab == 'car')
 end
 
 function script.drawUI(dt)

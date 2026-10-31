@@ -35,7 +35,7 @@ def main():
         '  return cached',
         'end',
         '',
-        'local genDate = ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),
+        "local genDate = '" + datetime.datetime.now().strftime('%Y-%m-%d %H:%M') + "'",
         '',
     ]
     for f in files:

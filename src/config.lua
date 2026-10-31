@@ -2,12 +2,10 @@
 return {
   toggleKey = ui.KeyIndex.M,
 
-  -- Coches ofrecidos ('id' = carpeta del coche).
-  -- Deben existir como entradas en el entry_list del servidor.
-  cars = {
-    { id = 'tunermnrcars_eskuko_missile_e36coupe',   name = 'Eskuko Missile E36 Coupe' },
-    { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact' },
-  },
+  -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
+  -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
+  -- MapVotePlugin/CarListController). Para anadir o quitar coches, cambia el
+  -- entry_list del preset/servidor; el menu lo recoge solo.
 
   -- Datos opcionales del servidor para reconectar. Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
