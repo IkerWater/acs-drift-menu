@@ -112,10 +112,7 @@ local function drawStatus()
   end
 end
 
--- [VERIFICAR] La opacidad no se notaba cambiando solo WindowBg (toolWindow parece
--- pintar su propio fondo). Ahora WindowBg va transparente y el fondo se dibuja aqui
--- con C.bg. Si el fondo sale descolocado o doble, pon OWN_BG = false para volver
--- al comportamiento anterior.
+--Si el fondo sale descolocado o doble, pon OWN_BG = false para volver al comportamiento anterior.
 local OWN_BG = true
 
 local function drawBackground()

@@ -7,7 +7,6 @@ local M = {}
 function M.changeCar(carIdx, skinIdx)
   local car = CONFIG.cars[carIdx]
   core.safe('Cambio de coche', function()
-    -- [VERIFICAR] nombre y parametros exactos en tu SDK
     ac.reconnectTo({
       host = CONFIG.server.host, port = CONFIG.server.port,
       httpPort = CONFIG.server.httpPort, password = CONFIG.server.password,

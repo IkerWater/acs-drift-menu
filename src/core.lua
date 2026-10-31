@@ -5,7 +5,7 @@ M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carIndex = 1, skinIndex = 1,
-  hour = 12,
+  hour = 12, hourInitialized = false,
   message = '', messageTime = 0,
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.

@@ -20,13 +20,13 @@ function M.teleportToPoint()
   local p = core.state.savedPoint
   if not p then return core.notify('No hay punto guardado') end
   core.safe('Teleport', function()
-    physics.setCarPosition(0, p.pos, (p.dir * -1)) -- [VERIFICAR]
+    physics.setCarPosition(0, p.pos, (p.dir * -1))
   end)
 end
 
 function M.teleportToPits()
   core.safe('Teleport a pits', function()
-    physics.teleportCarTo(0, ac.SpawnSet.Pits) -- [VERIFICAR]
+    physics.teleportCarTo(0, ac.SpawnSet.Pits)
   end)
 end
 

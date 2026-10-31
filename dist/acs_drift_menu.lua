@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 04:04).
+-- GENERADO EL (2026-10-31 12:06).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 04:04'
+local genDate = '2026-10-31 12:06'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -29,7 +29,7 @@ return {
     { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact', skins = { 'default', 'JulenArjona' } },
   },
 
-  -- Datos del servidor para reconectar (cambio de coche/skin).
+  -- Datos del servidor para reconectar (cambio de coche/skin). Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
   -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
@@ -50,7 +50,7 @@ M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carIndex = 1, skinIndex = 1,
-  hour = 12,
+  hour = 12, hourInitialized = false,
   message = '', messageTime = 0,
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
@@ -94,7 +94,6 @@ local M = {}
 function M.changeCar(carIdx, skinIdx)
   local car = CONFIG.cars[carIdx]
   core.safe('Cambio de coche', function()
-    -- [VERIFICAR] nombre y parametros exactos en tu SDK
     ac.reconnectTo({
       host = CONFIG.server.host, port = CONFIG.server.port,
       httpPort = CONFIG.server.httpPort, password = CONFIG.server.password,
@@ -314,13 +313,13 @@ function M.teleportToPoint()
   local p = core.state.savedPoint
   if not p then return core.notify('No hay punto guardado') end
   core.safe('Teleport', function()
-    physics.setCarPosition(0, p.pos, (p.dir * -1)) -- [VERIFICAR]
+    physics.setCarPosition(0, p.pos, (p.dir * -1))
   end)
 end
 
 function M.teleportToPits()
   core.safe('Teleport a pits', function()
-    physics.teleportCarTo(0, ac.SpawnSet.Pits) -- [VERIFICAR]
+    physics.teleportCarTo(0, ac.SpawnSet.Pits)
   end)
 end
 
@@ -343,8 +342,28 @@ local M = {}
 
 function M.setTimeOfDay(hour)
   core.safe('Hora del dia', function()
-    -- [VERIFICAR] pendiente: poner aqui la funcion real del SDK para la hora
-    error('pendiente de implementar')
+    if type(hour) ~= 'number' or hour ~= hour or hour < 0 or hour > 24 then
+      error('hora no valida')
+    end
+
+    local sim = ac.getSim()
+    local currentSeconds = sim.timeHours * 3600 + sim.timeMinutes * 60 + sim.timeSeconds
+    local targetSeconds = (hour % 24) * 3600
+    local offset = (targetSeconds - currentSeconds + 43200) % 86400 - 43200
+    local timestamp = ac.getTrackDateTime() + offset
+    ac.setWeatherExactUTC0Timestamp(timestamp, false)
+  end)
+end
+
+function M.initialize()
+  if core.state.hourInitialized then return true end
+
+  return core.safe('Hora del dia', function()
+    local sim = ac.getSim()
+    if sim.isInMainMenu then return end
+
+    core.state.hour = sim.timeHours + sim.timeMinutes / 60 + sim.timeSeconds / 3600
+    core.state.hourInitialized = true
   end)
 end
 
@@ -467,10 +486,7 @@ local function drawStatus()
   end
 end
 
--- [VERIFICAR] La opacidad no se notaba cambiando solo WindowBg (toolWindow parece
--- pintar su propio fondo). Ahora WindowBg va transparente y el fondo se dibuja aqui
--- con C.bg. Si el fondo sale descolocado o doble, pon OWN_BG = false para volver
--- al comportamiento anterior.
+--Si el fondo sale descolocado o doble, pon OWN_BG = false para volver al comportamiento anterior.
 local OWN_BG = true
 
 local function drawBackground()
@@ -738,8 +754,8 @@ local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
 return function()
   local state = core.state
 
-  sectionTitle('---NO FUNCIONA---', C.accentHi)
-  sectionTitle('Hora del dia', C.accentHi)
+  time.initialize()
+  sectionTitle('Hora del dia (solo tu cliente)', C.accentHi)
   ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
   ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
   ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)

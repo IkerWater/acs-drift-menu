@@ -9,7 +9,7 @@ return {
     { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact', skins = { 'default', 'JulenArjona' } },
   },
 
-  -- Datos del servidor para reconectar (cambio de coche/skin).
+  -- Datos del servidor para reconectar (cambio de coche/skin). Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
   -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
