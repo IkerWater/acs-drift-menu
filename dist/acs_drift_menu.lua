@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:44).
+-- GENERADO EL (2026-10-31 12:49).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:44'
+local genDate = '2026-10-31 12:49'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -230,7 +230,15 @@ local function loadLocalSkins(carID)
 
     if io.dirExists(skinPath) then
       local label = name
+      local preview = skinPath .. '/preview.jpg'
       local skinJson = skinPath .. '/ui_skin.json'
+
+      if not io.fileExists(preview) then
+        preview = skinPath .. '/preview.png'
+        if not io.fileExists(preview) then
+          preview = nil
+        end
+      end
 
       -- El nombre visible es opcional:
       -- si no existe ui_skin.json, usamos el nombre de carpeta.
@@ -246,7 +254,7 @@ local function loadLocalSkins(carID)
         end
       end
 
-      skins[#skins + 1] = { id = name, label = label }
+      skins[#skins + 1] = { id = name, label = label, preview = preview }
     end
   end
 
@@ -695,7 +703,9 @@ return function()
   ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
     for i, s in ipairs(skinState.skins) do
       local label = s.label .. '##skin_' .. s.id
-      if styledButton(label, vec2(-0.1, 28), skinState.selected == i) then
+      ui.image(s.preview or 'color::30303A', vec2(52, 48))
+      ui.sameLine(0, 8)
+      if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
     end

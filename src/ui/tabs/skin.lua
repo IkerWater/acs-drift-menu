@@ -45,7 +45,9 @@ return function()
   ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
     for i, s in ipairs(skinState.skins) do
       local label = s.label .. '##skin_' .. s.id
-      if styledButton(label, vec2(-0.1, 28), skinState.selected == i) then
+      ui.image(s.preview or 'color::30303A', vec2(52, 48))
+      ui.sameLine(0, 8)
+      if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
     end

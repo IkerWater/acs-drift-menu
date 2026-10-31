@@ -32,7 +32,15 @@ local function loadLocalSkins(carID)
 
     if io.dirExists(skinPath) then
       local label = name
+      local preview = skinPath .. '/preview.jpg'
       local skinJson = skinPath .. '/ui_skin.json'
+
+      if not io.fileExists(preview) then
+        preview = skinPath .. '/preview.png'
+        if not io.fileExists(preview) then
+          preview = nil
+        end
+      end
 
       -- El nombre visible es opcional:
       -- si no existe ui_skin.json, usamos el nombre de carpeta.
@@ -48,7 +56,7 @@ local function loadLocalSkins(carID)
         end
       end
 
-      skins[#skins + 1] = { id = name, label = label }
+      skins[#skins + 1] = { id = name, label = label, preview = preview }
     end
   end
 
