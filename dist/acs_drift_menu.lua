@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 03:37).
+-- GENERADO EL (2026-10-31 03:47).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 03:37'
+local genDate = '2026-10-31 03:47'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -421,10 +421,12 @@ end
 
 local function drawTabBar()
   local w = (ui.availableSpaceX() - (#TABS - 1) * GAP_TABS) / #TABS
+  ui.pushFont(ui.Font.Title)
   for i, t in ipairs(TABS) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
     if styledButton(t.label, vec2(w, 30), core.state.tab == t.id) then core.state.tab = t.id end
   end
+  ui.popFont()
   ui.dummy(vec2(0, 6))
 end
 
@@ -892,9 +894,7 @@ function M.bigText(text, size, color)
 end
 
 function M.smallText(text, color)
-  ui.pushFont(ui.Font.Small)
   ui.textColored(text, color or C.dim)
-  ui.popFont()
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)

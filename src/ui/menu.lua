@@ -66,10 +66,12 @@ end
 
 local function drawTabBar()
   local w = (ui.availableSpaceX() - (#TABS - 1) * GAP_TABS) / #TABS
+  ui.pushFont(ui.Font.Title)
   for i, t in ipairs(TABS) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
     if styledButton(t.label, vec2(w, 30), core.state.tab == t.id) then core.state.tab = t.id end
   end
+  ui.popFont()
   ui.dummy(vec2(0, 6))
 end
 

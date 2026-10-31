@@ -53,9 +53,7 @@ function M.bigText(text, size, color)
 end
 
 function M.smallText(text, color)
-  ui.pushFont(ui.Font.Small)
   ui.textColored(text, color or C.dim)
-  ui.popFont()
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
