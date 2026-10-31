@@ -6,8 +6,8 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 return function()
   local skinState = skin.state
 
-  sectionTitle('---NO FUNCIONA---', C.accentHi)
   sectionTitle('Cambiar skin', C.accentHi)
+  smallText('El cambio solo es visible para ti; no modifica el servidor.')
 
   local carID = ac.getCarID(0)
 

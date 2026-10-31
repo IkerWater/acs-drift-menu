@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:35).
+-- GENERADO EL (2026-10-31 12:44).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:35'
+local genDate = '2026-10-31 12:44'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -199,6 +199,14 @@ __modules['features/skin'] = function()
 -- Skins locales: descubrimiento y aplicacion (solo cliente).
 local M = {}
 
+local TEXTURE_EXTENSIONS = {
+  dds = true,
+  jpg = true,
+  jpeg = true,
+  png = true,
+  tga = true,
+}
+
 M.state = {
   carID = nil,
   skins = {},
@@ -270,19 +278,55 @@ function M.refresh()
 end
 
 function M.apply(skin)
+  if type(skin) ~= 'table' or type(skin.id) ~= 'string'
+      or type(skin.label) ~= 'string' then
+    M.state.message = 'No se ha podido aplicar: skin no valida.'
+    return false
+  end
+
   local carID = ac.getCarID(0)
   local skinPath = ac.getFolder(ac.FolderID.ContentCars)
       .. '/' .. carID .. '/skins/' .. skin.id
 
   local ok, err = pcall(function()
-    ac.findNodes('carRoot:0'):applySkin(skinPath)
+    if not io.dirExists(skinPath) then
+      error('No se encuentra la carpeta local de la skin.')
+    end
+
+    local replacements = {}
+    for _, name in ipairs(io.scanDir(skinPath, '*') or {}) do
+      local extension = name:match('%.([^%.]+)$')
+      local texturePath = skinPath .. '/' .. name
+      if extension and TEXTURE_EXTENSIONS[extension:lower()]
+          and io.fileExists(texturePath) then
+        replacements[name] = texturePath
+      end
+    end
+    if next(replacements) == nil then
+      error('La carpeta no contiene texturas compatibles.')
+    end
+
+    local carRoot = ac.findNodes('carRoot:0')
+    if not carRoot then
+      error('No se encontro el coche local.')
+    end
+    if type(carRoot.applySkin) ~= 'function' then
+      error('Esta version de CSP no permite cambiar skins localmente.')
+    end
+    if type(carRoot.resetSkin) ~= 'function' then
+      error('Esta version de CSP no permite restablecer la skin local.')
+    end
+
+    carRoot:resetSkin()
+    carRoot:applySkin(replacements)
   end)
 
   if ok then
-    M.state.message = 'Skin aplicada localmente: ' .. skin.label
+    M.state.message = 'Skin aplicada localmente (solo visible para ti): ' .. skin.label
   else
     M.state.message = 'Error al aplicar skin: ' .. tostring(err)
   end
+  return ok
 end
 
 return M
@@ -572,17 +616,6 @@ return function()
     end
   end
 
-  -- ── Comportamiento ───────────────────────────────────────────────────────
-  T.sectionTitle('Comportamiento')
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
-  end
-  ui.popStyleColor(4)
-
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, 'Opacidad: %.2f')
@@ -599,6 +632,17 @@ return function()
   local newY = styledSlider('##posy', s.posY, 0, 100, 'Y: %.0f%%')
   if newX ~= s.posX then s.posX = newX end
   if newY ~= s.posY then s.posY = newY end
+
+    -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle('Comportamiento')
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+  end
+  ui.popStyleColor(4)
 end
 end
 
@@ -612,8 +656,8 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 return function()
   local skinState = skin.state
 
-  sectionTitle('---NO FUNCIONA---', C.accentHi)
   sectionTitle('Cambiar skin', C.accentHi)
+  smallText('El cambio solo es visible para ti; no modifica el servidor.')
 
   local carID = ac.getCarID(0)
 

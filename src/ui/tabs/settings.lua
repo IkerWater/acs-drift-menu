@@ -48,17 +48,6 @@ return function()
     end
   end
 
-  -- ── Comportamiento ───────────────────────────────────────────────────────
-  T.sectionTitle('Comportamiento')
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
-  end
-  ui.popStyleColor(4)
-
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, 'Opacidad: %.2f')
@@ -75,4 +64,15 @@ return function()
   local newY = styledSlider('##posy', s.posY, 0, 100, 'Y: %.0f%%')
   if newX ~= s.posX then s.posX = newX end
   if newY ~= s.posY then s.posY = newY end
+
+    -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle('Comportamiento')
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+  end
+  ui.popStyleColor(4)
 end
