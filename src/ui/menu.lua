@@ -42,13 +42,12 @@ local function requiredWidth()
   if cachedWidth then return cachedWidth end
 
   ui.pushFont(ui.Font.Title)
-  local tabsW = (#TABS - 1) * GAP_TABS
+  local widestTabLabel = 0
   for _, t in ipairs(TABS) do
-    local width = T.textWidth(t.label) + BTN_PAD
-    t.buttonWidth = width
-    tabsW = tabsW + width
+    widestTabLabel = math.max(widestTabLabel, T.textWidth(t.label))
   end
   ui.popFont()
+  local tabsW = #TABS * (widestTabLabel + BTN_PAD) + (#TABS - 1) * GAP_TABS
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -83,9 +82,11 @@ end
 
 local function drawTabBar()
   ui.pushFont(ui.Font.Title)
+  local tabCount = #TABS
+  local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
   for i, t in ipairs(TABS) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(t.label, vec2(t.buttonWidth, 34), core.state.tab == t.id) then
+    if styledButton(t.label, vec2(buttonWidth, 34), core.state.tab == t.id) then
       core.state.tab = t.id
     end
   end
