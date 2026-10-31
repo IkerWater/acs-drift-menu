@@ -73,7 +73,7 @@ end
 
 function M.sectionTitle(text, color)
   ui.dummy(vec2(0, 4))
-  M.smallText(string.upper(text), color or C.accent)
+  M.smallText(string.upper(text), color or C.accentHi)
   ui.dummy(vec2(0, 2))
 end
 
