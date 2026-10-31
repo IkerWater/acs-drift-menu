@@ -5,6 +5,8 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 
 return function()
   local skinState = skin.state
+
+  sectionTitle('---NO FUNCIONA---', C.accentHi)
   sectionTitle('Cambiar skin', C.accentHi)
 
   local carID = ac.getCarID(0)

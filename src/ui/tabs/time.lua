@@ -7,6 +7,7 @@ local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
 return function()
   local state = core.state
 
+  sectionTitle('---NO FUNCIONA---', C.accentHi)
   sectionTitle('Hora del dia', C.accentHi)
   ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
   ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
