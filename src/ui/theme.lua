@@ -12,6 +12,46 @@ M.C = {
 }
 local C = M.C
 
+-- RGB base del fondo (sin alpha) para poder recalcular al cambiar transparencia.
+local BG_R, BG_G, BG_B = 0.045, 0.045, 0.070
+
+-- Presets de color de acento. El primero (verde) coincide con el tema actual.
+M.ACCENTS = {
+  { name = 'Verde',   c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
+  { name = 'Morado',  c = rgbm(0.620, 0.360, 1.000, 1.00), hi = rgbm(0.740, 0.500, 1.000, 1.00) },
+  { name = 'Naranja', c = rgbm(0.940, 0.550, 0.200, 1.00), hi = rgbm(1.000, 0.680, 0.350, 1.00) },
+  { name = 'Cian',    c = rgbm(0.200, 0.800, 0.900, 1.00), hi = rgbm(0.400, 0.920, 1.000, 1.00) },
+  { name = 'Rojo',    c = rgbm(0.900, 0.250, 0.300, 1.00), hi = rgbm(1.000, 0.400, 0.450, 1.00) },
+}
+
+-- Presets de color de texto. Legibles sobre cualquier acento de arriba.
+M.TEXTS = {
+  { name = 'Blanco',     c = rgbm(0.920, 0.950, 0.925, 1.00) },
+  { name = 'Gris claro', c = rgbm(0.820, 0.820, 0.830, 1.00) },
+  { name = 'Crema',      c = rgbm(0.970, 0.930, 0.850, 1.00) },
+}
+
+function M.applyAccent(index)
+  local a = M.ACCENTS[index] or M.ACCENTS[1]
+  C.accent, C.accentHi = a.c, a.hi
+end
+
+function M.applyText(index)
+  local t = M.TEXTS[index] or M.TEXTS[1]
+  C.text = t.c
+end
+
+function M.applyBgAlpha(alpha)
+  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.15, math.min(1.0, alpha)))
+end
+
+-- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).
+function M.textWidth(text)
+  local ok, size = pcall(ui.measureText, text)
+  if ok and size and size.x then return size.x end
+  return #text * 8
+end
+
 -- Texto grande: usa dwrite si el SDK lo ofrece; si no, texto normal.
 function M.bigText(text, size, color)
   if ui.dwriteText then

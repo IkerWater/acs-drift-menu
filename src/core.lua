@@ -8,6 +8,14 @@ M.state = {
   hour = 12,
   message = '', messageTime = 0,
   savedPoint = nil,
+  -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
+  settings = {
+    accentIndex = 1,   -- indice en T.ACCENTS
+    textIndex   = 1,   -- indice en T.TEXTS
+    bgAlpha     = 0.96,
+    posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
+    posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
+  },
 }
 
 function M.notify(text)
