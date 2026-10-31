@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 03:51).
+-- GENERADO EL (2026-10-31 04:01).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 03:51'
+local genDate = '2026-10-31 04:01'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -361,17 +361,18 @@ local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
 
 local TABS = {
-  { id = 'car',      label = 'Coche',    draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'Skin',     draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'Circuito', draw = import('ui/tabs/track')    },
-  { id = 'time',     label = 'Hora',     draw = import('ui/tabs/time')     },
-  { id = 'teleport', label = 'TP',       draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'Ajustes',  draw = import('ui/tabs/settings') },
+  { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
+  { id = 'time',     label = 'Hora',     height = 360, draw = import('ui/tabs/time')     },
+  { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
 }
 
 local M = {}
 
-local WIN_H        = 750   -- alto fijo de la ventana
+local MAX_WIN_H    = 900
+local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
@@ -380,6 +381,16 @@ local GAP_SWATCH   = 5
 
 local footerText = ' [M] para cerrar | ACS Drift by Water | ' .. genDate
 local cachedWidth
+local function requiredHeight()
+  local h = MIN_WIN_H
+  for _, tab in ipairs(TABS) do
+    local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
+    h = math.max(h, tabHeight)
+  end
+  local state = core.state
+  if state.message ~= '' and os.clock() - state.messageTime < 6 then h = h + 62 end
+  return math.min(MAX_WIN_H, h)
+end
 
 -- Ancho que necesita el contenido: el mayor entre la barra de pestanas, el pie
 -- y la fila de colores de acento (las tres son las partes que no pueden partirse).
@@ -470,11 +481,14 @@ local function drawMenu()
   if OWN_BG then drawBackground() end
   header()
   drawTabBar()
-  for _, t in ipairs(TABS) do
-    if core.state.tab == t.id then t.draw() break end
+  for _, tab in ipairs(TABS) do
+    if core.state.tab == tab.id then
+      tab.draw()
+      break
+    end
   end
   drawStatus()
-  ui.dummy(vec2(0, ui.availableSpaceY() - 64))
+  ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
   ui.newLine()
   ui.textAligned(footerText, vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
 end
@@ -482,15 +496,16 @@ end
 function M.drawWindow()
   local s = core.state.settings
   local w = requiredWidth()
+  local h = requiredHeight()
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local x = (s.posX / 100) * math.max(0, sw - w)
-  local y = (s.posY / 100) * math.max(0, sh - WIN_H)
+  local y = (s.posY / 100) * math.max(0, sh - h)
   ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
-  ui.toolWindow('acs_menu/main', vec2(x, y), vec2(w, WIN_H), false, true, drawMenu)
+  ui.toolWindow('acs_menu/main', vec2(x, y), vec2(w, h), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
 end
