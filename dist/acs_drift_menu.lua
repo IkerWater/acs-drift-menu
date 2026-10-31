@@ -350,8 +350,15 @@ function M.setTimeOfDay(hour)
     local currentSeconds = sim.timeHours * 3600 + sim.timeMinutes * 60 + sim.timeSeconds
     local targetSeconds = (hour % 24) * 3600
     local offset = (targetSeconds - currentSeconds + 43200) % 86400 - 43200
-    local timestamp = ac.getTrackDateTime() + offset
-    ac.setWeatherExactUTC0Timestamp(timestamp, false)
+
+    if ac.setWeatherExactUTC0Timestamp then
+      local timestamp = ac.getTrackDateTime() + offset
+      ac.setWeatherExactUTC0Timestamp(timestamp, false)
+    elseif not sim.isOnlineRace and ac.setWeatherTimeOffset then
+      ac.setWeatherTimeOffset(offset, true)
+    else
+      error('Actualiza CSP a 0.3.0+ para cambiar la hora online')
+    end
   end)
 end
 
