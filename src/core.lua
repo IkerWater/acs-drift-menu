@@ -11,8 +11,8 @@ M.state = {
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
   settings = {
     accentIndex = 1,   -- indice en T.ACCENTS
-    textIndex   = 1,   -- indice en T.TEXTS
     bgAlpha     = 0.96,
+    closeOnGas  = true,  -- cerrar el menu al acelerar (ver main.lua)
     posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
     posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
   },

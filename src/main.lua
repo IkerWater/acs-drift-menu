@@ -8,8 +8,11 @@ local menu = import('ui/menu')
 function script.update(dt)
   local sim = ac.getSim()
   if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
-  --Comentado el cierre automatico del menu hasta implementar el toggle en el tab settings
-  --if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
+  -- Cierre automatico al acelerar (se activa/desactiva en la pestana Ajustes).
+  if core.state.open and core.state.settings.closeOnGas then
+    local car = ac.getCar(0)
+    if car and car.gas > 0 then core.state.open = false end
+  end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
 end

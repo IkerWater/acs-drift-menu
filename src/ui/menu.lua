@@ -91,7 +91,18 @@ local function drawStatus()
   end
 end
 
+-- [VERIFICAR] La opacidad no se notaba cambiando solo WindowBg (toolWindow parece
+-- pintar su propio fondo). Ahora WindowBg va transparente y el fondo se dibuja aqui
+-- con C.bg. Si el fondo sale descolocado o doble, pon OWN_BG = false para volver
+-- al comportamiento anterior.
+local OWN_BG = true
+
+local function drawBackground()
+  ui.drawRectFilled(vec2(0, 0), ui.windowSize(), C.bg, 16)
+end
+
 local function drawMenu()
+  if OWN_BG then drawBackground() end
   header()
   drawTabBar()
   for _, t in ipairs(TABS) do
@@ -110,7 +121,7 @@ function M.drawWindow()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local x = (s.posX / 100) * math.max(0, sw - w)
   local y = (s.posY / 100) * math.max(0, sh - WIN_H)
-  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))

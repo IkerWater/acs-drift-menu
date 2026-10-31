@@ -48,19 +48,16 @@ return function()
     end
   end
 
-  -- ── Color de texto ───────────────────────────────────────────────────────
-  T.sectionTitle('Color de texto')
-  T.smallText('Elige el que mejor contraste con el acento elegido.')
-  ui.dummy(vec2(0, 4))
-  local nt = #T.TEXTS
-  local tw = (ui.availableSpaceX() - (nt - 1) * 5) / nt
-  for i, t in ipairs(T.TEXTS) do
-    if i > 1 then ui.sameLine(0, 5) end
-    if swatchBtn('tx'..i, t.name, t.c, t.c, s.textIndex == i, tw, 30) then
-      s.textIndex = i
-      T.applyText(i)
-    end
+  -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle('Comportamiento')
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
   end
+  ui.popStyleColor(4)
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')

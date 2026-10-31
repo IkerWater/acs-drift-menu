@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 03:06).
+-- GENERADO EL (2026-10-31 03:16).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 03:06'
+local genDate = '2026-10-31 03:16'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -56,8 +56,8 @@ M.state = {
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
   settings = {
     accentIndex = 1,   -- indice en T.ACCENTS
-    textIndex   = 1,   -- indice en T.TEXTS
     bgAlpha     = 0.96,
+    closeOnGas  = true,  -- cerrar el menu al acelerar (ver main.lua)
     posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
     posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
   },
@@ -446,7 +446,18 @@ local function drawStatus()
   end
 end
 
+-- [VERIFICAR] La opacidad no se notaba cambiando solo WindowBg (toolWindow parece
+-- pintar su propio fondo). Ahora WindowBg va transparente y el fondo se dibuja aqui
+-- con C.bg. Si el fondo sale descolocado o doble, pon OWN_BG = false para volver
+-- al comportamiento anterior.
+local OWN_BG = true
+
+local function drawBackground()
+  ui.drawRectFilled(vec2(0, 0), ui.windowSize(), C.bg, 16)
+end
+
 local function drawMenu()
+  if OWN_BG then drawBackground() end
   header()
   drawTabBar()
   for _, t in ipairs(TABS) do
@@ -465,7 +476,7 @@ function M.drawWindow()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local x = (s.posX / 100) * math.max(0, sw - w)
   local y = (s.posY / 100) * math.max(0, sh - WIN_H)
-  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
   ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
@@ -558,19 +569,16 @@ return function()
     end
   end
 
-  -- ── Color de texto ───────────────────────────────────────────────────────
-  T.sectionTitle('Color de texto')
-  T.smallText('Elige el que mejor contraste con el acento elegido.')
-  ui.dummy(vec2(0, 4))
-  local nt = #T.TEXTS
-  local tw = (ui.availableSpaceX() - (nt - 1) * 5) / nt
-  for i, t in ipairs(T.TEXTS) do
-    if i > 1 then ui.sameLine(0, 5) end
-    if swatchBtn('tx'..i, t.name, t.c, t.c, s.textIndex == i, tw, 30) then
-      s.textIndex = i
-      T.applyText(i)
-    end
+  -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle('Comportamiento')
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox('Cerrar el menu al acelerar', s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
   end
+  ui.popStyleColor(4)
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.sectionTitle('Transparencia del fondo')
@@ -846,30 +854,19 @@ local C = M.C
 -- RGB base del fondo (sin alpha) para poder recalcular al cambiar transparencia.
 local BG_R, BG_G, BG_B = 0.045, 0.045, 0.070
 
--- Presets de color de acento. El primero (verde) coincide con el tema actual.
+-- Presets de color de acento. Mismo estilo que el verde original: tono oscuro
+-- para botones/bordes (c) y version viva para hover y detalles (hi).
 M.ACCENTS = {
   { name = 'Verde',   c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
-  { name = 'Morado',  c = rgbm(0.620, 0.360, 1.000, 1.00), hi = rgbm(0.740, 0.500, 1.000, 1.00) },
-  { name = 'Naranja', c = rgbm(0.940, 0.550, 0.200, 1.00), hi = rgbm(1.000, 0.680, 0.350, 1.00) },
-  { name = 'Cian',    c = rgbm(0.200, 0.800, 0.900, 1.00), hi = rgbm(0.400, 0.920, 1.000, 1.00) },
-  { name = 'Rojo',    c = rgbm(0.900, 0.250, 0.300, 1.00), hi = rgbm(1.000, 0.400, 0.450, 1.00) },
-}
-
--- Presets de color de texto. Legibles sobre cualquier acento de arriba.
-M.TEXTS = {
-  { name = 'Blanco',     c = rgbm(0.920, 0.950, 0.925, 1.00) },
-  { name = 'Gris claro', c = rgbm(0.820, 0.820, 0.830, 1.00) },
-  { name = 'Crema',      c = rgbm(0.970, 0.930, 0.850, 1.00) },
+  { name = 'Morado',  c = rgbm(0.360, 0.200, 0.620, 0.80), hi = rgbm(0.620, 0.400, 1.000, 1.00) },
+  { name = 'Naranja', c = rgbm(0.620, 0.320, 0.100, 0.80), hi = rgbm(1.000, 0.600, 0.250, 1.00) },
+  { name = 'Cian',    c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
+  { name = 'Rojo',    c = rgbm(0.550, 0.140, 0.180, 0.80), hi = rgbm(1.000, 0.350, 0.400, 1.00) },
 }
 
 function M.applyAccent(index)
   local a = M.ACCENTS[index] or M.ACCENTS[1]
   C.accent, C.accentHi = a.c, a.hi
-end
-
-function M.applyText(index)
-  local t = M.TEXTS[index] or M.TEXTS[1]
-  C.text = t.c
 end
 
 function M.applyBgAlpha(alpha)
@@ -949,8 +946,11 @@ local menu = import('ui/menu')
 function script.update(dt)
   local sim = ac.getSim()
   if sim.isReplayActive or sim.isPaused or sim.isInMainMenu then return end
-  --Comentado el cierre automatico del menu hasta implementar el toggle en el tab settings
-  --if core.state.open and ac.getCar(0).gas > 0 then core.state.open = false end
+  -- Cierre automatico al acelerar (se activa/desactiva en la pestana Ajustes).
+  if core.state.open and core.state.settings.closeOnGas then
+    local car = ac.getCar(0)
+    if car and car.gas > 0 then core.state.open = false end
+  end
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
 end
