@@ -3,6 +3,7 @@
 local core = import('core')
 local T = import('ui/theme')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
+T.applyBgAlpha(core.state.settings.bgAlpha)
 
 local TABS = {
   { id = 'car',      label = 'Coche',    draw = import('ui/tabs/car')      },
@@ -30,8 +31,14 @@ local cachedWidth
 local function requiredWidth()
   if cachedWidth then return cachedWidth end
 
+  ui.pushFont(ui.Font.Title)
   local tabsW = (#TABS - 1) * GAP_TABS
-  for _, t in ipairs(TABS) do tabsW = tabsW + T.textWidth(t.label) + BTN_PAD end
+  for _, t in ipairs(TABS) do
+    local width = T.textWidth(t.label) + BTN_PAD
+    t.buttonWidth = width
+    tabsW = tabsW + width
+  end
+  ui.popFont()
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -65,11 +72,12 @@ local function header()
 end
 
 local function drawTabBar()
-  local w = (ui.availableSpaceX() - (#TABS - 1) * GAP_TABS) / #TABS
   ui.pushFont(ui.Font.Title)
   for i, t in ipairs(TABS) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(t.label, vec2(w, 30), core.state.tab == t.id) then core.state.tab = t.id end
+    if styledButton(t.label, vec2(t.buttonWidth, 34), core.state.tab == t.id) then
+      core.state.tab = t.id
+    end
   end
   ui.popFont()
   ui.dummy(vec2(0, 6))

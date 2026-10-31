@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 03:47).
+-- GENERADO EL (2026-10-31 03:51).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 03:47'
+local genDate = '2026-10-31 03:51'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -57,7 +57,7 @@ M.state = {
   settings = {
     accentIndex = 1,   -- indice en T.ACCENTS
     bgAlpha     = 0.15,
-    closeOnGas  = true,  -- cerrar el menu al acelerar (ver main.lua)
+    closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
     posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
     posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
   },
@@ -358,6 +358,7 @@ __modules['ui/menu'] = function()
 local core = import('core')
 local T = import('ui/theme')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
+T.applyBgAlpha(core.state.settings.bgAlpha)
 
 local TABS = {
   { id = 'car',      label = 'Coche',    draw = import('ui/tabs/car')      },
@@ -385,8 +386,14 @@ local cachedWidth
 local function requiredWidth()
   if cachedWidth then return cachedWidth end
 
+  ui.pushFont(ui.Font.Title)
   local tabsW = (#TABS - 1) * GAP_TABS
-  for _, t in ipairs(TABS) do tabsW = tabsW + T.textWidth(t.label) + BTN_PAD end
+  for _, t in ipairs(TABS) do
+    local width = T.textWidth(t.label) + BTN_PAD
+    t.buttonWidth = width
+    tabsW = tabsW + width
+  end
+  ui.popFont()
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -420,11 +427,12 @@ local function header()
 end
 
 local function drawTabBar()
-  local w = (ui.availableSpaceX() - (#TABS - 1) * GAP_TABS) / #TABS
   ui.pushFont(ui.Font.Title)
   for i, t in ipairs(TABS) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(t.label, vec2(w, 30), core.state.tab == t.id) then core.state.tab = t.id end
+    if styledButton(t.label, vec2(t.buttonWidth, 34), core.state.tab == t.id) then
+      core.state.tab = t.id
+    end
   end
   ui.popFont()
   ui.dummy(vec2(0, 6))
