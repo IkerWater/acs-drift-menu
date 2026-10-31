@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:20).
+-- GENERADO EL (2026-10-31 12:31).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:20'
+local genDate = '2026-10-31 12:31'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -50,7 +50,6 @@ M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carIndex = 1, skinIndex = 1,
-  hour = 12, hourInitialized = false,
   message = '', messageTime = 0,
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
@@ -333,57 +332,6 @@ end
 return M
 end
 
--- ===== modulo: features/time (src/features/time.lua) =====
-__modules['features/time'] = function()
--- Hora del dia.
-local core = import('core')
-
-local M = {}
-
-function M.setTimeOfDay(hour)
-  core.safe('Hora del dia', function()
-    if type(hour) ~= 'number' or hour ~= hour or hour < 0 or hour > 24 then
-      error('hora no valida')
-    end
-
-    local sim = ac.getSim()
-    local currentSeconds = sim.timeHours * 3600 + sim.timeMinutes * 60 + sim.timeSeconds
-    local targetSeconds = (hour % 24) * 3600
-    local offset = (targetSeconds - currentSeconds + 43200) % 86400 - 43200
-
-    local trackTimestamp
-    if ac.getTrackDateTime then
-      trackTimestamp = ac.getTrackDateTime()
-    elseif type(sim.timestamp) == 'number' and sim.timestamp > 0 then
-      trackTimestamp = sim.timestamp
-    end
-
-    if ac.setWeatherExactUTC0Timestamp and trackTimestamp then
-      local timestamp = trackTimestamp + offset
-      ac.setWeatherExactUTC0Timestamp(timestamp, false)
-    elseif not sim.isOnlineRace and ac.setWeatherTimeOffset then
-      ac.setWeatherTimeOffset(offset, true)
-    else
-      error('Actualiza CSP a 0.3.0+ para cambiar la hora online')
-    end
-  end)
-end
-
-function M.initialize()
-  if core.state.hourInitialized then return true end
-
-  return core.safe('Hora del dia', function()
-    local sim = ac.getSim()
-    if sim.isInMainMenu then return end
-
-    core.state.hour = sim.timeHours + sim.timeMinutes / 60 + sim.timeSeconds / 3600
-    core.state.hourInitialized = true
-  end)
-end
-
-return M
-end
-
 -- ===== modulo: ui/menu (src/ui/menu.lua) =====
 __modules['ui/menu'] = function()
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
@@ -397,7 +345,6 @@ local TABS = {
   { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
   { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
   { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
-  { id = 'time',     label = 'Hora',     height = 360, draw = import('ui/tabs/time')     },
   { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
 }
@@ -754,32 +701,6 @@ return function()
   else
     smallText('Sin asignar: pulsa el cuadro y luego la tecla/boton.')
   end
-end
-end
-
--- ===== modulo: ui/tabs/time (src/ui/tabs/time.lua) =====
-__modules['ui/tabs/time'] = function()
--- Pestana: hora del dia.
-local core = import('core')
-local time = import('features/time')
-local T = import('ui/theme')
-local C, sectionTitle, styledButton = T.C, T.sectionTitle, T.styledButton
-
-return function()
-  local state = core.state
-
-  time.initialize()
-  sectionTitle('Hora del dia (solo tu cliente)', C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.FrameBg, C.surface)
-  ui.pushStyleColor(ui.StyleColor.SliderGrab, C.accent)
-  ui.pushStyleColor(ui.StyleColor.SliderGrabActive, C.accentHi)
-  ui.pushStyleVar(ui.StyleVar.FrameRounding, 9)
-  ui.setNextItemWidth(ui.availableSpaceX())
-  state.hour = ui.slider('##hour', state.hour, 0, 24, 'Hora: %.1f')
-  ui.popStyleVar(1)
-  ui.popStyleColor(3)
-  ui.dummy(vec2(0, 8))
-  if styledButton('Aplicar hora', vec2(-0.1, 36), true) then time.setTimeOfDay(state.hour) end
 end
 end
 

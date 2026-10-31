@@ -9,7 +9,6 @@ local TABS = {
   { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
   { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
   { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
-  { id = 'time',     label = 'Hora',     height = 360, draw = import('ui/tabs/time')     },
   { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
 }
