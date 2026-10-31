@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:49).
+-- GENERADO EL (2026-10-31 12:54).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:49'
+local genDate = '2026-10-31 12:54'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -702,12 +702,15 @@ return function()
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
   ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
     for i, s in ipairs(skinState.skins) do
-      local label = s.label .. '##skin_' .. s.id
-      ui.image(s.preview or 'color::30303A', vec2(52, 48))
-      ui.sameLine(0, 8)
+      local buttonPos = ui.getCursor()
+      local label = '       ' .. s.label .. '##skin_' .. s.id
       if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
+      local previewMin = buttonPos + vec2(5, 4)
+      local previewMax = buttonPos + vec2(57, 44)
+      ui.drawImage(s.preview or 'color::30303A', previewMin, previewMax,
+          rgbm.colors.white, vec2(0, 0), vec2(1, 1), ui.ImageFit.Fit)
     end
   end)
   ui.popStyleVar(1)
