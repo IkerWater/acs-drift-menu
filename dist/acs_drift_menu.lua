@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-10-31 12:54).
+-- GENERADO EL (2026-10-31 13:00).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-10-31 12:54'
+local genDate = '2026-10-31 13:00'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -707,10 +707,10 @@ return function()
       if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
-      local previewMin = buttonPos + vec2(5, 4)
-      local previewMax = buttonPos + vec2(57, 44)
+      local previewMin = buttonPos + vec2(5, 2)
+      local previewMax = buttonPos + vec2(63, 46)
       ui.drawImage(s.preview or 'color::30303A', previewMin, previewMax,
-          rgbm.colors.white, vec2(0, 0), vec2(1, 1), ui.ImageFit.Fit)
+          rgbm.colors.white, vec2(0.08, 0.08), vec2(0.92, 0.92), ui.ImageFit.Fit)
     end
   end)
   ui.popStyleVar(1)
