@@ -10,9 +10,9 @@ local M = {}
 local state = { isAdmin = false }
 M.data = state
 
--- [VERIFICAR] forma de registrar un OnlineEvent sin campos (solo la key) en tu version de CSP.
 local requestEvent = ac.OnlineEvent({
   ac.StructItem.key('ACP_AdminStatusRequest'),
+  request = ac.StructItem.uint8(),
 })
 
 ac.OnlineEvent({
@@ -26,7 +26,7 @@ end)
 local pollTimer = 0
 
 function M.request()
-  requestEvent({})
+  requestEvent({ request = 0 })
 end
 
 function M.update(dt)

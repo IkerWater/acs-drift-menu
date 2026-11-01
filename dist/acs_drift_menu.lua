@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-01 12:26).
+-- GENERADO EL (2026-11-01 19:04).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-01 12:26'
+local genDate = '2026-11-01 19:04'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -94,9 +94,9 @@ local M = {}
 local state = { isAdmin = false }
 M.data = state
 
--- [VERIFICAR] forma de registrar un OnlineEvent sin campos (solo la key) en tu version de CSP.
 local requestEvent = ac.OnlineEvent({
   ac.StructItem.key('ACP_AdminStatusRequest'),
+  request = ac.StructItem.uint8(),
 })
 
 ac.OnlineEvent({
@@ -110,7 +110,7 @@ end)
 local pollTimer = 0
 
 function M.request()
-  requestEvent({})
+  requestEvent({ request = 0 })
 end
 
 function M.update(dt)
