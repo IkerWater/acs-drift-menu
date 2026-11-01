@@ -1,19 +1,33 @@
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
 -- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS.
 local core = import('core')
+local admin = import('features/admin')
 local T = import('ui/theme')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
 
+-- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
   { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
   { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
   { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
   { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'Admin',    height = 260, draw = import('ui/tabs/admin'),
+    visible = function() return admin.data.isAdmin end },
 }
 
 local M = {}
+
+-- Solo las pestanas que tocan mostrarse ahora mismo (admin.data.isAdmin puede
+-- cambiar en caliente: se recalcula cada vez, es barato con esta pocas pestanas).
+local function visibleTabs()
+  local out = {}
+  for _, t in ipairs(TABS) do
+    if not t.visible or t.visible() then out[#out + 1] = t end
+  end
+  return out
+end
 
 local MAX_WIN_H    = 900
 local MIN_WIN_H    = 560
@@ -24,10 +38,9 @@ local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 
 local footerText = ' [M] para cerrar | ACS Drift by Water | ' .. genDate
-local cachedWidth
-local function requiredHeight()
+local function requiredHeight(tabs)
   local h = MIN_WIN_H
-  for _, tab in ipairs(TABS) do
+  for _, tab in ipairs(tabs) do
     local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
     h = math.max(h, tabHeight)
   end
@@ -38,16 +51,26 @@ end
 
 -- Ancho que necesita el contenido: el mayor entre la barra de pestanas, el pie
 -- y la fila de colores de acento (las tres son las partes que no pueden partirse).
-local function requiredWidth()
-  if cachedWidth then return cachedWidth end
+-- Se cachea por la combinacion de pestanas visibles: la de Admin aparece/desaparece
+-- en caliente y cambia cuanto ocupa la barra.
+local cachedWidth, cachedWidthKey
+local function tabsKey(tabs)
+  local parts = {}
+  for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
+  return table.concat(parts, ',')
+end
+
+local function requiredWidth(tabs)
+  local key = tabsKey(tabs)
+  if cachedWidth and cachedWidthKey == key then return cachedWidth end
 
   ui.pushFont(ui.Font.Title)
   local widestTabLabel = 0
-  for _, t in ipairs(TABS) do
+  for _, t in ipairs(tabs) do
     widestTabLabel = math.max(widestTabLabel, T.textWidth(t.label))
   end
   ui.popFont()
-  local tabsW = #TABS * (widestTabLabel + BTN_PAD) + (#TABS - 1) * GAP_TABS
+  local tabsW = #tabs * (widestTabLabel + BTN_PAD) + (#tabs - 1) * GAP_TABS
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -58,6 +81,7 @@ local function requiredWidth()
   local footerW = T.textWidth(footerText) + 16
 
   cachedWidth = math.ceil(math.max(MIN_W, tabsW, accentW, footerW) + PAD_X * 2)
+  cachedWidthKey = key
   return cachedWidth
 end
 
@@ -80,11 +104,18 @@ local function header()
   accentLine()
 end
 
-local function drawTabBar()
+local function drawTabBar(tabs)
+  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
+  local stillThere = false
+  for _, t in ipairs(tabs) do
+    if t.id == core.state.tab then stillThere = true break end
+  end
+  if not stillThere and tabs[1] then core.state.tab = tabs[1].id end
+
   ui.pushFont(ui.Font.Title)
-  local tabCount = #TABS
+  local tabCount = #tabs
   local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
-  for i, t in ipairs(TABS) do
+  for i, t in ipairs(tabs) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
     if styledButton(t.label, vec2(buttonWidth, 34), core.state.tab == t.id) then
       core.state.tab = t.id
@@ -120,10 +151,11 @@ local function drawBackground()
 end
 
 local function drawMenu()
+  local tabs = visibleTabs()
   if OWN_BG then drawBackground() end
   header()
-  drawTabBar()
-  for _, tab in ipairs(TABS) do
+  drawTabBar(tabs)
+  for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
       tab.draw()
       break
@@ -137,8 +169,9 @@ end
 
 function M.drawWindow()
   local s = core.state.settings
-  local w = requiredWidth()
-  local h = requiredHeight()
+  local tabs = visibleTabs()
+  local w = requiredWidth(tabs)
+  local h = requiredHeight(tabs)
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local x = (s.posX / 100) * math.max(0, sw - w)

@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-01 02:10).
+-- GENERADO EL (2026-11-01 10:39).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-01 02:10'
+local genDate = '2026-11-01 10:39'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -76,6 +76,52 @@ function M.sendChatCommand(cmd)
   ac.sendChatMessage(cmd)
   M.notify('Enviado: ' .. cmd)
 end
+
+return M
+end
+
+-- ===== modulo: features/admin (src/features/admin.lua) =====
+__modules['features/admin'] = function()
+-- Estado de administrador de ESTA conexion. No hay forma de saberlo por HTTP
+-- (el servidor no sabe que jugador hay detras de una peticion web normal), asi
+-- que se pide por online event (CSP), que si va atado a la conexion del cliente.
+-- El estado puede cambiar en caliente (alguien escribe /admin <contraseña> en el
+-- chat a mitad de partida), por eso se vuelve a pedir cada pocos segundos.
+local core = import('core')
+
+local M = {}
+
+local state = { isAdmin = false }
+M.data = state
+
+-- [VERIFICAR] forma de registrar un OnlineEvent sin campos (solo la key) en tu version de CSP.
+local requestEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_AdminStatusRequest'),
+})
+
+ac.OnlineEvent({
+  ac.StructItem.key('ACP_AdminStatusResponse'),
+  isAdmin = ac.StructItem.uint8(),
+}, function(sender, message)
+  if sender ~= nil then return end -- solo mensajes del propio servidor
+  state.isAdmin = message.isAdmin == 1
+end)
+
+local pollTimer = 0
+
+function M.request()
+  requestEvent({})
+end
+
+function M.update(dt)
+  pollTimer = pollTimer - dt
+  if pollTimer <= 0 then
+    pollTimer = 5
+    if core.state.open then M.request() end
+  end
+end
+
+M.request() -- primer chequeo nada mas cargar el script
 
 return M
 end
@@ -441,19 +487,33 @@ __modules['ui/menu'] = function()
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
 -- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS.
 local core = import('core')
+local admin = import('features/admin')
 local T = import('ui/theme')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
 
+-- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
   { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
   { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
   { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
   { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'Admin',    height = 260, draw = import('ui/tabs/admin'),
+    visible = function() return admin.data.isAdmin end },
 }
 
 local M = {}
+
+-- Solo las pestanas que tocan mostrarse ahora mismo (admin.data.isAdmin puede
+-- cambiar en caliente: se recalcula cada vez, es barato con esta pocas pestanas).
+local function visibleTabs()
+  local out = {}
+  for _, t in ipairs(TABS) do
+    if not t.visible or t.visible() then out[#out + 1] = t end
+  end
+  return out
+end
 
 local MAX_WIN_H    = 900
 local MIN_WIN_H    = 560
@@ -464,10 +524,9 @@ local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 
 local footerText = ' [M] para cerrar | ACS Drift by Water | ' .. genDate
-local cachedWidth
-local function requiredHeight()
+local function requiredHeight(tabs)
   local h = MIN_WIN_H
-  for _, tab in ipairs(TABS) do
+  for _, tab in ipairs(tabs) do
     local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
     h = math.max(h, tabHeight)
   end
@@ -478,16 +537,26 @@ end
 
 -- Ancho que necesita el contenido: el mayor entre la barra de pestanas, el pie
 -- y la fila de colores de acento (las tres son las partes que no pueden partirse).
-local function requiredWidth()
-  if cachedWidth then return cachedWidth end
+-- Se cachea por la combinacion de pestanas visibles: la de Admin aparece/desaparece
+-- en caliente y cambia cuanto ocupa la barra.
+local cachedWidth, cachedWidthKey
+local function tabsKey(tabs)
+  local parts = {}
+  for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
+  return table.concat(parts, ',')
+end
+
+local function requiredWidth(tabs)
+  local key = tabsKey(tabs)
+  if cachedWidth and cachedWidthKey == key then return cachedWidth end
 
   ui.pushFont(ui.Font.Title)
   local widestTabLabel = 0
-  for _, t in ipairs(TABS) do
+  for _, t in ipairs(tabs) do
     widestTabLabel = math.max(widestTabLabel, T.textWidth(t.label))
   end
   ui.popFont()
-  local tabsW = #TABS * (widestTabLabel + BTN_PAD) + (#TABS - 1) * GAP_TABS
+  local tabsW = #tabs * (widestTabLabel + BTN_PAD) + (#tabs - 1) * GAP_TABS
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -498,6 +567,7 @@ local function requiredWidth()
   local footerW = T.textWidth(footerText) + 16
 
   cachedWidth = math.ceil(math.max(MIN_W, tabsW, accentW, footerW) + PAD_X * 2)
+  cachedWidthKey = key
   return cachedWidth
 end
 
@@ -520,11 +590,18 @@ local function header()
   accentLine()
 end
 
-local function drawTabBar()
+local function drawTabBar(tabs)
+  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
+  local stillThere = false
+  for _, t in ipairs(tabs) do
+    if t.id == core.state.tab then stillThere = true break end
+  end
+  if not stillThere and tabs[1] then core.state.tab = tabs[1].id end
+
   ui.pushFont(ui.Font.Title)
-  local tabCount = #TABS
+  local tabCount = #tabs
   local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
-  for i, t in ipairs(TABS) do
+  for i, t in ipairs(tabs) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
     if styledButton(t.label, vec2(buttonWidth, 34), core.state.tab == t.id) then
       core.state.tab = t.id
@@ -560,10 +637,11 @@ local function drawBackground()
 end
 
 local function drawMenu()
+  local tabs = visibleTabs()
   if OWN_BG then drawBackground() end
   header()
-  drawTabBar()
-  for _, tab in ipairs(TABS) do
+  drawTabBar(tabs)
+  for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
       tab.draw()
       break
@@ -577,8 +655,9 @@ end
 
 function M.drawWindow()
   local s = core.state.settings
-  local w = requiredWidth()
-  local h = requiredHeight()
+  local tabs = visibleTabs()
+  local w = requiredWidth(tabs)
+  local h = requiredHeight(tabs)
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local x = (s.posX / 100) * math.max(0, sw - w)
@@ -593,6 +672,34 @@ function M.drawWindow()
 end
 
 return M
+end
+
+-- ===== modulo: ui/tabs/admin (src/ui/tabs/admin.lua) =====
+__modules['ui/tabs/admin'] = function()
+-- Pestana: Admin (solo visible si esta conexion entro con /admin <contraseña>).
+-- De momento son accesos directos a comandos de chat /map* ya existentes en el
+-- servidor (MapVotePlugin, marcados [RequireAdmin]); se puede ampliar aqui.
+local T = import('ui/theme')
+local C, sectionTitle, styledButton, smallText = T.C, T.sectionTitle, T.styledButton, T.smallText
+
+-- [VERIFICAR] nombre de la funcion de CSP para enviar un mensaje de chat local (se asume ac.sendChatMessage).
+local function sendChat(cmd)
+  local ok = pcall(ac.sendChatMessage, cmd)
+  if not ok then ac.log('No se pudo enviar: ' .. cmd) end
+end
+
+return function()
+  sectionTitle('Admin', C.accentHi)
+  smallText('Acciones de administrador (requieren haber entrado con /admin).')
+  ui.dummy(vec2(0, 8))
+
+  if styledButton('Cancelar votacion / cambio en curso', vec2(-0.1, 32)) then
+    sendChat('/mapcancel')
+  end
+  if styledButton('Recargar lista de circuitos', vec2(-0.1, 32)) then
+    sendChat('/mapreload')
+  end
+end
 end
 
 -- ===== modulo: ui/tabs/car (src/ui/tabs/car.lua) =====
@@ -1064,6 +1171,7 @@ local core = import('core')
 local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
+local admin = import('features/admin')
 local menu = import('ui/menu')
 
 function script.update(dt)
@@ -1077,6 +1185,7 @@ function script.update(dt)
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
+  admin.update(dt)
 end
 
 function script.drawUI(dt)

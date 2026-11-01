@@ -38,7 +38,7 @@ public class MapVotePlugin : BackgroundService
     private readonly EntryCarManager _entryCarManager;
     private readonly TrackCatalog _catalog;
 
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private VoteState? _vote;
     private TrackEntry? _pendingEntry;
     private DateTime _pendingAt;
@@ -210,8 +210,6 @@ public class MapVotePlugin : BackgroundService
     }
 
 #if MAPVOTE_TEST
-    internal void TestBroadcast(string m) => Broadcast(m);
-
     internal string TestApply(int id)
     {
         lock (_lock)
@@ -372,15 +370,7 @@ public class MapVotePlugin : BackgroundService
         {
             File.Copy(runningCfg, startupCfg + ".tmp", true);
             File.Move(startupCfg + ".tmp", startupCfg, true);
-            // y sus coches: cada preset puede tener los suyos
-            var runningEntry = Path.Join(_serverConfig.BaseFolder, "entry_list.ini");
-            var startupEntry = Path.Join("cfg", "entry_list.ini");
-            if (File.Exists(runningEntry))
-            {
-                File.Copy(runningEntry, startupEntry + ".tmp", true);
-                File.Move(startupEntry + ".tmp", startupEntry, true);
-            }
-            Log.Information("MapVote: copiado {From} a cfg/ (el preset no se modifica)", _serverConfig.BaseFolder);
+            Log.Information("MapVote: copiado {From} a cfg/ (el preset no se modifica)", runningCfg);
         }
 
         var targets = new List<string> { startupCfg };
