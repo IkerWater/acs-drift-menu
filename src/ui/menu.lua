@@ -3,17 +3,18 @@
 local core = import('core')
 local admin = import('features/admin')
 local T = import('ui/theme')
+local I18N = import('i18n')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
-  { id = 'car',      label = 'Coche',    height = 440, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'Skin',     height = 580, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'Circuito', height = 800, draw = import('ui/tabs/track')    },
-  { id = 'teleport', label = 'TP',       height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'Ajustes',  height = 580, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'Admin',    height = 260, draw = import('ui/tabs/admin'),
+  { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
+  { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'tab.admin',    height = 260, draw = import('ui/tabs/admin'),
     visible = function() return admin.data.isAdmin end },
 }
 
@@ -37,7 +38,9 @@ local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su 
 local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 
-local footerText = ' [M] para cerrar | ACS Drift by Water | ' .. genDate
+local function footerText()
+  return I18N.get('menu.footer', genDate)
+end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
   for _, tab in ipairs(tabs) do
@@ -55,7 +58,7 @@ end
 -- en caliente y cambia cuanto ocupa la barra.
 local cachedWidth, cachedWidthKey
 local function tabsKey(tabs)
-  local parts = {}
+  local parts = { core.state.settings.language }
   for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
   return table.concat(parts, ',')
 end
@@ -67,18 +70,18 @@ local function requiredWidth(tabs)
   ui.pushFont(ui.Font.Title)
   local widestTabLabel = 0
   for _, t in ipairs(tabs) do
-    widestTabLabel = math.max(widestTabLabel, T.textWidth(t.label))
+    widestTabLabel = math.max(widestTabLabel, T.textWidth(I18N.get(t.label)))
   end
   ui.popFont()
   local tabsW = #tabs * (widestTabLabel + BTN_PAD) + (#tabs - 1) * GAP_TABS
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
-    maxAccent = math.max(maxAccent, T.textWidth('> ' .. a.name))
+    maxAccent = math.max(maxAccent, T.textWidth('> ' .. I18N.get(a.name)))
   end
   local accentW = #T.ACCENTS * (maxAccent + BTN_PAD) + (#T.ACCENTS - 1) * GAP_SWATCH
 
-  local footerW = T.textWidth(footerText) + 16
+  local footerW = T.textWidth(footerText()) + 16
 
   cachedWidth = math.ceil(math.max(MIN_W, tabsW, accentW, footerW) + PAD_X * 2)
   cachedWidthKey = key
@@ -117,7 +120,7 @@ local function drawTabBar(tabs)
   local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
   for i, t in ipairs(tabs) do
     if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(t.label, vec2(buttonWidth, 34), core.state.tab == t.id) then
+    if styledButton(I18N.get(t.label), vec2(buttonWidth, 34), core.state.tab == t.id) then
       core.state.tab = t.id
     end
   end
@@ -164,7 +167,7 @@ local function drawMenu()
   drawStatus()
   ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
   ui.newLine()
-  ui.textAligned(footerText, vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
 end
 
 function M.drawWindow()

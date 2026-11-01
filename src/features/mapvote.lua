@@ -3,6 +3,7 @@
 local CONFIG = import('config')
 local core = import('core')
 local net = import('net')
+local I18N = import('i18n')
 
 local M = {}
 
@@ -22,7 +23,7 @@ function M.loadTracks()
       mapvote.tracks, mapvote.tracksState = data, 'ok'
     else
       mapvote.tracksState = 'error'
-      core.notify('Lista de mapas: ' .. tostring(err))
+      core.notify(I18N.get('track.list_error', tostring(err)))
     end
   end)
 end
@@ -46,12 +47,14 @@ function M.update(dt, active)
 end
 
 function M.propose(entry)
-  core.sendChatCommand(string.format(CONFIG.commands.mapStart, entry.id))
+  local command = string.format(CONFIG.commands.mapStart, entry.id)
+  core.sendChatCommand(command, I18N.get('common.sent', command))
   mapvote.pollTimer = 0.4
 end
 
 function M.castVote(yes)
-  core.sendChatCommand(yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo)
+  local command = yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo
+  core.sendChatCommand(command, I18N.get('common.sent', command))
   mapvote.myVote = yes
   mapvote.myVoteFor = mapvote.status and mapvote.status.proposal and mapvote.status.proposal.id or nil
   mapvote.pollTimer = 0.4

@@ -1,13 +1,14 @@
 -- Pestana: skins locales.
 local skin = import('features/skin')
 local T = import('ui/theme')
+local I18N = import('i18n')
 local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
 
 return function()
   local skinState = skin.state
 
-  sectionTitle('Cambiar skin', C.accentHi)
-  smallText('El cambio solo es visible para ti; no modifica el servidor.')
+  sectionTitle(I18N.get('skin.title'), C.accentHi)
+  smallText(I18N.get('skin.local_only'))
 
   local carID = ac.getCarID(0)
 
@@ -16,24 +17,24 @@ return function()
     skin.refresh()
   end
 
-  smallText('Coche: ' .. tostring(carID), C.text)
+  smallText(I18N.get('skin.car', tostring(carID)), C.text)
   ui.dummy(vec2(0, 4))
 
   -- Sin skins: aviso y boton de recarga
   if #skinState.skins == 0 then
-    smallText('No se han encontrado carpetas de skins.')
-    smallText('Comprueba la ruta local del coche.')
+    smallText(I18N.get('skin.not_found'))
+    smallText(I18N.get('skin.check_path'))
     ui.dummy(vec2(0, 8))
-    if styledButton('RECARGAR SKINS', vec2(-0.1, 34), true) then
+    if styledButton(I18N.get('skin.reload'), vec2(-0.1, 34), true) then
       skin.refresh()
     end
     return
   end
 
-  smallText('Skins locales: ' .. #skinState.skins)
+  smallText(I18N.get('skin.count', #skinState.skins))
   ui.dummy(vec2(0, 4))
 
-  if styledButton('RECARGAR LISTA', vec2(-0.1, 28), false) then
+  if styledButton(I18N.get('skin.reload_list'), vec2(-0.1, 28), false) then
     skin.refresh()
   end
 
@@ -60,7 +61,7 @@ return function()
 
   ui.dummy(vec2(0, 8))
 
-  if styledButton('APLICAR SKIN', vec2(-0.1, 38), true) then
+  if styledButton(I18N.get('skin.apply'), vec2(-0.1, 38), true) then
     local selected = skinState.skins[skinState.selected]
     if selected then
       skin.apply(selected)

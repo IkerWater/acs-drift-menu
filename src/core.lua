@@ -9,6 +9,7 @@ M.state = {
   savedPoint = nil,
   -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
   settings = {
+    language    = 'en', -- en | es; CSP Lua API does not expose a documented game-language getter.
     accentIndex = 1,   -- indice en T.ACCENTS
     bgAlpha     = 0.15,
     closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
@@ -23,15 +24,18 @@ function M.notify(text)
 end
 
 -- Ejecuta fn protegida; si falla, avisa en el menu y devuelve false.
-function M.safe(label, fn)
+function M.safe(label, fn, unavailableText)
   local ok, err = pcall(fn)
-  if not ok then M.notify(label .. ': no disponible (' .. tostring(err):sub(1, 70) .. ')') end
+  if not ok then
+    M.notify(label .. ': ' .. (unavailableText or 'no disponible')
+        .. ' (' .. tostring(err):sub(1, 70) .. ')')
+  end
   return ok
 end
 
-function M.sendChatCommand(cmd)
+function M.sendChatCommand(cmd, sentMessage)
   ac.sendChatMessage(cmd)
-  M.notify('Enviado: ' .. cmd)
+  M.notify(sentMessage or ('Enviado: ' .. cmd))
 end
 
 return M

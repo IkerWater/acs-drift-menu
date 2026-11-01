@@ -1,4 +1,5 @@
 -- Skins locales: descubrimiento y aplicacion (solo cliente).
+local I18N = import('i18n')
 local M = {}
 
 local TEXTURE_EXTENSIONS = {
@@ -90,7 +91,7 @@ end
 function M.apply(skin)
   if type(skin) ~= 'table' or type(skin.id) ~= 'string'
       or type(skin.label) ~= 'string' then
-    M.state.message = 'No se ha podido aplicar: skin no valida.'
+    M.state.message = I18N.get('skin.invalid')
     return false
   end
 
@@ -100,7 +101,7 @@ function M.apply(skin)
 
   local ok, err = pcall(function()
     if not io.dirExists(skinPath) then
-      error('No se encuentra la carpeta local de la skin.')
+      error(I18N.get('skin.folder_missing'))
     end
 
     local replacements = {}
@@ -113,18 +114,18 @@ function M.apply(skin)
       end
     end
     if next(replacements) == nil then
-      error('La carpeta no contiene texturas compatibles.')
+      error(I18N.get('skin.textures_missing'))
     end
 
     local carRoot = ac.findNodes('carRoot:0')
     if not carRoot then
-      error('No se encontro el coche local.')
+      error(I18N.get('skin.car_missing'))
     end
     if type(carRoot.applySkin) ~= 'function' then
-      error('Esta version de CSP no permite cambiar skins localmente.')
+      error(I18N.get('skin.unsupported'))
     end
     if type(carRoot.resetSkin) ~= 'function' then
-      error('Esta version de CSP no permite restablecer la skin local.')
+      error(I18N.get('skin.reset_unsupported'))
     end
 
     carRoot:resetSkin()
@@ -132,9 +133,9 @@ function M.apply(skin)
   end)
 
   if ok then
-    M.state.message = 'Skin aplicada localmente (solo visible para ti): ' .. skin.label
+    M.state.message = I18N.get('skin.local_applied', skin.label)
   else
-    M.state.message = 'Error al aplicar skin: ' .. tostring(err)
+    M.state.message = I18N.get('skin.apply_error', tostring(err))
   end
   return ok
 end

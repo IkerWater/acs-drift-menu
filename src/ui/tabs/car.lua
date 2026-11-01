@@ -2,6 +2,7 @@
 local core = import('core')
 local carFeat = import('features/car')
 local T = import('ui/theme')
+local I18N = import('i18n')
 local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
 
 local cars = carFeat.data
@@ -9,18 +10,18 @@ local cars = carFeat.data
 return function()
   local state = core.state
 
-  sectionTitle('Coche', C.accentHi)
+  sectionTitle(I18N.get('car.title'), C.accentHi)
 
   if cars.status == 'loading' and #cars.list == 0 then
-    smallText('Consultando coches disponibles...')
+    smallText(I18N.get('car.loading'))
     return
   elseif cars.status == 'error' and #cars.list == 0 then
-    smallText('No se pudo consultar el servidor.')
+    smallText(I18N.get('car.server_error'))
     ui.dummy(vec2(0, 4))
-    if styledButton('REINTENTAR', vec2(-0.1, 32), true) then carFeat.refresh() end
+    if styledButton(I18N.get('common.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
     return
   elseif #cars.list == 0 then
-    smallText('El servidor no tiene coches configurados en el entry list.')
+    smallText(I18N.get('car.empty'))
     return
   end
 
@@ -35,7 +36,7 @@ return function()
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
   ui.childWindow('acs_car_list', vec2(-0.1, 220), false, function()
     for _, c in ipairs(cars.list) do
-      local label = string.format('%s  (%d/%d libres)##car_%s', c.name, c.free, c.total, c.id)
+      local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
       if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then
         state.carID = c.id
       end
@@ -45,16 +46,16 @@ return function()
   ui.popStyleColor(1)
 
   ui.dummy(vec2(0, 6))
-  if styledButton('Recargar lista', vec2(-0.1, 26), false) then carFeat.refresh() end
+  if styledButton(I18N.get('car.reload'), vec2(-0.1, 26), false) then carFeat.refresh() end
   ui.dummy(vec2(0, 8))
 
   local canApply = selected ~= nil and selected.free > 0
-  if styledButton('APLICAR  (reconecta)', vec2(-0.1, 38), true, not canApply) then
+  if styledButton(I18N.get('car.apply'), vec2(-0.1, 38), true, not canApply) then
     carFeat.changeCar(state.carID)
   end
   if selected and selected.free <= 0 then
-    smallText('Ese coche no tiene plazas libres ahora mismo.')
+    smallText(I18N.get('car.no_slots'))
   elseif not selected then
-    smallText('Elige un coche de la lista.')
+    smallText(I18N.get('car.choose'))
   end
 end

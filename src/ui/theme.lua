@@ -18,11 +18,11 @@ local BG_R, BG_G, BG_B = 0.045, 0.045, 0.070
 -- Presets de color de acento. Mismo estilo que el verde original: tono oscuro
 -- para botones/bordes (c) y version viva para hover y detalles (hi).
 M.ACCENTS = {
-  { name = 'Verde',   c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
-  { name = 'Morado',  c = rgbm(0.360, 0.200, 0.620, 0.80), hi = rgbm(0.620, 0.400, 1.000, 1.00) },
-  { name = 'Naranja', c = rgbm(0.620, 0.320, 0.100, 0.80), hi = rgbm(1.000, 0.600, 0.250, 1.00) },
-  { name = 'Azul',    c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
-  { name = 'Rojo',    c = rgbm(0.600, 0.100, 0.100, 0.80), hi = rgbm(1.000, 0.200, 0.200, 1.00) },
+  { name = 'color.green',  c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
+  { name = 'color.purple', c = rgbm(0.360, 0.200, 0.620, 0.80), hi = rgbm(0.620, 0.400, 1.000, 1.00) },
+  { name = 'color.orange', c = rgbm(0.620, 0.320, 0.100, 0.80), hi = rgbm(1.000, 0.600, 0.250, 1.00) },
+  { name = 'color.blue',   c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
+  { name = 'color.red',    c = rgbm(0.600, 0.100, 0.100, 0.80), hi = rgbm(1.000, 0.200, 0.200, 1.00) },
 }
 
 function M.applyAccent(index)
