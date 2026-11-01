@@ -1,4 +1,4 @@
--- MapVotePlugin · menú "Votar circuito" (CSP) y reconexión automática al cambiar de circuito.
+-- AcsDriftServerPlugin · menú "Votar circuito" (CSP) y reconexión automática al cambiar de circuito.
 -- Este archivo se puede editar: el servidor lo vuelve a leer al reiniciar.
 
 local baseUrl = 'http://' .. ac.getServerIP() .. ':' .. ac.getServerPortHTTP() .. '/mapvote/'

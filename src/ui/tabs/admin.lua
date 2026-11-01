@@ -1,6 +1,6 @@
 -- Pestana: Admin (solo visible si esta conexion entro con /admin <contraseña>).
 -- De momento son accesos directos a comandos de chat /map* ya existentes en el
--- servidor (MapVotePlugin, marcados [RequireAdmin]); se puede ampliar aqui.
+-- servidor (AcsDriftServerPlugin, marcados [RequireAdmin]); se puede ampliar aqui.
 local T = import('ui/theme')
 local C, sectionTitle, styledButton, smallText = T.C, T.sectionTitle, T.styledButton, T.smallText
 

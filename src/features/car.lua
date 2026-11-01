@@ -1,5 +1,5 @@
 -- Cambio de coche: la lista ya no se edita a mano (CONFIG.cars); se lee del
--- entry list real del servidor via MapVotePlugin (/cars/list), con cuantas
+-- entry list real del servidor via AcsDriftServerPlugin (/cars/list), con cuantas
 -- plazas de cada coche estan libres ahora mismo. El cambio sigue siendo una
 -- reconexion (ac.reconnectTo): el servidor asigna la plaza libre que toque.
 local CONFIG = import('config')

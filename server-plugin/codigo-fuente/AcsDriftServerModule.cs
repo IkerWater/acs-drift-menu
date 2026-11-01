@@ -2,9 +2,9 @@ using AssettoServer.Server.Plugin;
 using Autofac;
 using Microsoft.Extensions.Hosting;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
-public class MapVoteModule : AssettoServerModule<MapVoteConfiguration>
+public class AcsDriftServerModule : AssettoServerModule<MapVoteConfiguration>
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -13,6 +13,6 @@ public class MapVoteModule : AssettoServerModule<MapVoteConfiguration>
         builder.Register(_ => new MapVoteConfiguration()).AsSelf().SingleInstance().PreserveExistingDefaults();
         builder.RegisterType<TrackCatalog>().AsSelf().SingleInstance();
         builder.RegisterType<CarCatalog>().AsSelf().SingleInstance();
-        builder.RegisterType<MapVotePlugin>().AsSelf().As<IHostedService>().SingleInstance();
+        builder.RegisterType<AcsDriftServerPlugin>().AsSelf().As<IHostedService>().SingleInstance();
     }
 }

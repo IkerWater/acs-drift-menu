@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-01 19:04).
+-- GENERADO EL (2026-11-01 22:52).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-01 19:04'
+local genDate = '2026-11-01 22:52'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -24,13 +24,13 @@ return {
 
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
-  -- MapVotePlugin/CarListController). Para anadir o quitar coches, cambia el
+  -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
   -- entry_list del preset/servidor; el menu lo recoge solo.
 
   -- Datos opcionales del servidor para reconectar. Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
-  -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
+  -- Comandos de chat del plugin AcsDriftServerPlugin (votacion de mapa independiente de los presets).
   commands = {
     mapStart = '/mapstart %d',
     mapYes   = '/mapyes',
@@ -114,10 +114,15 @@ function M.request()
 end
 
 function M.update(dt)
+  if not core.state.open then
+    pollTimer = 0
+    return
+  end
+
   pollTimer = pollTimer - dt
   if pollTimer <= 0 then
     pollTimer = 5
-    if core.state.open then M.request() end
+    M.request()
   end
 end
 
@@ -129,7 +134,7 @@ end
 -- ===== modulo: features/car (src/features/car.lua) =====
 __modules['features/car'] = function()
 -- Cambio de coche: la lista ya no se edita a mano (CONFIG.cars); se lee del
--- entry list real del servidor via MapVotePlugin (/cars/list), con cuantas
+-- entry list real del servidor via AcsDriftServerPlugin (/cars/list), con cuantas
 -- plazas de cada coche estan libres ahora mismo. El cambio sigue siendo una
 -- reconexion (ac.reconnectTo): el servidor asigna la plaza libre que toque.
 local CONFIG = import('config')
@@ -191,7 +196,7 @@ end
 
 -- ===== modulo: features/mapvote (src/features/mapvote.lua) =====
 __modules['features/mapvote'] = function()
--- Votacion de mapa (servidor: MapVotePlugin).
+-- Votacion de mapa (servidor: AcsDriftServerPlugin).
 -- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
 local CONFIG = import('config')
 local core = import('core')
@@ -445,7 +450,7 @@ end
 
 -- ===== modulo: net (src/net.lua) =====
 __modules['net'] = function()
--- Peticiones HTTP al API del servidor (MapVotePlugin: /mapvote/*, /cars/*).
+-- Peticiones HTTP al API del servidor (AcsDriftServerPlugin: /mapvote/*, /cars/*).
 -- Modulo compartido: cualquier feature consulta al servidor sin reimplementar
 -- la URL base ni el parseo de JSON.
 local CONFIG = import('config')
@@ -678,7 +683,7 @@ end
 __modules['ui/tabs/admin'] = function()
 -- Pestana: Admin (solo visible si esta conexion entro con /admin <contraseña>).
 -- De momento son accesos directos a comandos de chat /map* ya existentes en el
--- servidor (MapVotePlugin, marcados [RequireAdmin]); se puede ampliar aqui.
+-- servidor (AcsDriftServerPlugin, marcados [RequireAdmin]); se puede ampliar aqui.
 local T = import('ui/theme')
 local C, sectionTitle, styledButton, smallText = T.C, T.sectionTitle, T.styledButton, T.smallText
 

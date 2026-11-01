@@ -1,4 +1,4 @@
--- Votacion de mapa (servidor: MapVotePlugin).
+-- Votacion de mapa (servidor: AcsDriftServerPlugin).
 -- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
 local CONFIG = import('config')
 local core = import('core')

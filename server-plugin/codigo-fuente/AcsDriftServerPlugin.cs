@@ -8,15 +8,14 @@ using AssettoServer.Shared.Network.Packets.Outgoing;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
 /// <summary>
-/// Votación pública de cambio de circuito, independiente de los presets.
-/// Cualquiera propone un circuito instalado; se aprueba si vota a favor más del 50 % de los
-/// conectados al empezar la votación. Al aprobarse, cambia TRACK/CONFIG_TRACK en la configuración
-/// en uso y reinicia AssettoServer dentro del mismo proceso (sin lanzador externo, válido en Pterodactyl).
+/// Servicios de servidor para el menú ACS Drift: API de coches, estado de administrador,
+/// votación pública de circuito y acciones administrativas. Los cambios de circuito se
+/// aplican reiniciando AssettoServer dentro del mismo proceso.
 /// </summary>
-public class MapVotePlugin : BackgroundService
+public class AcsDriftServerPlugin : BackgroundService
 {
     private sealed class VoteState
     {
@@ -45,7 +44,7 @@ public class MapVotePlugin : BackgroundService
     private DateTime _nextAllowedStart = DateTime.MinValue;
     private bool _restarting;
 
-    public MapVotePlugin(MapVoteConfiguration config,
+    public AcsDriftServerPlugin(MapVoteConfiguration config,
         ACServerConfiguration serverConfig,
         EntryCarManager entryCarManager,
         TrackCatalog catalog,
@@ -65,9 +64,10 @@ public class MapVotePlugin : BackgroundService
             if (File.Exists(luaPath))
                 scriptProvider.AddScript(File.ReadAllText(luaPath), "mapvote.lua");
             else
-                Log.Warning("MapVote: no se encuentra {Path}; solo funcionarán los comandos de chat", luaPath);
+                Log.Warning("ACS Drift Server: no se encuentra {Path}; solo funcionarán los comandos de chat", luaPath);
 
             clientMessageTypeManager.RegisterOnlineEvent<MapVoteActionPacket>(OnAction);
+            clientMessageTypeManager.RegisterOnlineEvent<AdminStatusRequestPacket>(OnAdminStatusRequest);
             // VotingPresetPlugin también la declara y añadirla dos veces rompe el arranque:
             // si ese plugin está activado, se la dejamos a él.
             var votingPreset = serverConfig.Extra.EnablePlugins?.Any(p =>
@@ -75,12 +75,12 @@ public class MapVotePlugin : BackgroundService
             if (!votingPreset)
             {
                 try { cspFeatureManager.Add(new CSPFeature { Name = "FREQUENT_TRACK_CHANGES" }); }
-                catch (ArgumentException) { Log.Debug("MapVote: FREQUENT_TRACK_CHANGES ya declarada por otro plugin"); }
+                catch (ArgumentException) { Log.Debug("ACS Drift Server: FREQUENT_TRACK_CHANGES ya declarada por otro plugin"); }
             }
         }
         else
         {
-            Log.Warning("MapVote: EnableClientMessages está desactivado en extra_cfg.yml: " +
+            Log.Warning("ACS Drift Server: EnableClientMessages está desactivado en extra_cfg.yml: " +
                         "no habrá menú ni reconexión automática, solo comandos de chat");
         }
     }
@@ -120,6 +120,14 @@ public class MapVotePlugin : BackgroundService
             case 2: CastVote(client, true); break;
             case 3: CastVote(client, false); break;
         }
+    }
+
+    private static void OnAdminStatusRequest(ACTcpClient client, AdminStatusRequestPacket packet)
+    {
+        client.SendPacket(new AdminStatusResponsePacket
+        {
+            IsAdmin = client.IsAdministrator ? (byte)1 : (byte)0
+        });
     }
 
     // ------------------------------------------------------------------ acciones de jugador
@@ -194,7 +202,7 @@ public class MapVotePlugin : BackgroundService
         _pendingEntry = entry;
         _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
         Broadcast($"{why}: {entry.Name}. Cambiando de circuito en {_config.ChangeDelaySeconds + _config.TransitionSeconds} s.");
-        Log.Information("MapVote: aprobado {Name} ({Track}/{Layout})", entry.Name, entry.Track, entry.Layout);
+        Log.Information("ACS Drift Server: aprobado {Name} ({Track}/{Layout})", entry.Name, entry.Track, entry.Layout);
     }
 
     internal void AdminSet(ACTcpClient client, int id)
@@ -325,7 +333,7 @@ public class MapVotePlugin : BackgroundService
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
-                Log.Error(ex, "MapVote: error en el bucle de control");
+                Log.Error(ex, "ACS Drift Server: error en el bucle de control");
                 lock (_lock) _restarting = false;
             }
 
@@ -370,7 +378,7 @@ public class MapVotePlugin : BackgroundService
         {
             File.Copy(runningCfg, startupCfg + ".tmp", true);
             File.Move(startupCfg + ".tmp", startupCfg, true);
-            Log.Information("MapVote: copiado {From} a cfg/ (el preset no se modifica)", runningCfg);
+            Log.Information("ACS Drift Server: copiado {From} a cfg/ (el preset no se modifica)", runningCfg);
         }
 
         var targets = new List<string> { startupCfg };
@@ -384,7 +392,7 @@ public class MapVotePlugin : BackgroundService
         foreach (var path in targets.Select(Path.GetFullPath).Distinct().Where(File.Exists))
         {
             WriteTrack(path, newTrack, entry.Layout);
-            Log.Information("MapVote: {Path} -> {Track} / '{Layout}'", path, newTrack, entry.Layout);
+            Log.Information("ACS Drift Server: {Path} -> {Track} / '{Layout}'", path, newTrack, entry.Layout);
         }
 
         if (_serverConfig.Extra.EnableClientMessages && _config.EnableReconnect)
@@ -402,7 +410,7 @@ public class MapVotePlugin : BackgroundService
 
         // El reinicio va 1 s antes de que el script del cliente se reconecte
         await Task.Delay(Math.Max(1, _config.TransitionSeconds - 1) * 1000, token);
-        Log.Information("MapVote: reiniciando el servidor con {Name}", entry.Name);
+        Log.Information("ACS Drift Server: reiniciando el servidor con {Name}", entry.Name);
         Program.RestartServer(
             fromPreset ? null : _serverConfig.Preset,
             portOverrides: new PortOverrides

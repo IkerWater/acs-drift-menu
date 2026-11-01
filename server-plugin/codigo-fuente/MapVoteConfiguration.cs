@@ -3,7 +3,7 @@ using FluentValidation;
 using JetBrains.Annotations;
 using YamlDotNet.Serialization;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
 [UsedImplicitly(ImplicitUseKindFlags.Assign, ImplicitUseTargetFlags.WithMembers)]
 public class MapVoteConfiguration : IValidateConfiguration<MapVoteConfigurationValidator>

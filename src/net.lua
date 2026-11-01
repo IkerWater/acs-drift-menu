@@ -1,4 +1,4 @@
--- Peticiones HTTP al API del servidor (MapVotePlugin: /mapvote/*, /cars/*).
+-- Peticiones HTTP al API del servidor (AcsDriftServerPlugin: /mapvote/*, /cars/*).
 -- Modulo compartido: cualquier feature consulta al servidor sin reimplementar
 -- la URL base ni el parseo de JSON.
 local CONFIG = import('config')

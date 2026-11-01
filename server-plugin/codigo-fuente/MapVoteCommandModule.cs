@@ -3,14 +3,14 @@ using AssettoServer.Commands.Attributes;
 using JetBrains.Annotations;
 using Qmmands;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
 [UsedImplicitly(ImplicitUseKindFlags.Access, ImplicitUseTargetFlags.WithMembers)]
 public class MapVoteCommandModule : ACModuleBase
 {
-    private readonly MapVotePlugin _plugin;
+    private readonly AcsDriftServerPlugin _plugin;
 
-    public MapVoteCommandModule(MapVotePlugin plugin)
+    public MapVoteCommandModule(AcsDriftServerPlugin plugin)
     {
         _plugin = plugin;
     }

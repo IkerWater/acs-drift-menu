@@ -30,10 +30,15 @@ function M.request()
 end
 
 function M.update(dt)
+  if not core.state.open then
+    pollTimer = 0
+    return
+  end
+
   pollTimer = pollTimer - dt
   if pollTimer <= 0 then
     pollTimer = 5
-    if core.state.open then M.request() end
+    M.request()
   end
 end
 

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
 /// <summary>API HTTP que consulta el menu del juego (lua/tabs/car.lua) para saber que coches
 /// del entry list tienen plazas libres ahora mismo.</summary>
