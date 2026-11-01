@@ -27,5 +27,12 @@ public class MapVoteController : ControllerBase
     // Solo en la compilación de pruebas: fuerza el cambio sin jugadores conectados
     [HttpPost("test/apply/{id:int}")]
     public IActionResult TestApply(int id) => Ok(_plugin.TestApply(id));
+
+    [HttpPost("test/broadcast/{len:int}")]
+    public IActionResult TestBroadcast(int len)
+    {
+        try { _plugin.TestBroadcast(new string('x', len)); return Ok("ok"); }
+        catch (Exception ex) { return Ok(ex.GetType().FullName + ": " + ex.Message); }
+    }
 #endif
 }
