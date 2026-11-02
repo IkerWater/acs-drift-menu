@@ -4,10 +4,18 @@ local M = {}
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
-  carIndex = 1, skinIndex = 1,
-  hour = 12,
+  carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
   savedPoint = nil,
+  -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
+  settings = {
+    language    = 'en', -- en | es; CSP Lua API does not expose a documented game-language getter.
+    accentIndex = 1,   -- indice en T.ACCENTS
+    bgAlpha     = 0.15,
+    closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
+    posX        = 0.5,  -- fraccion del espacio libre horizontal (0 = izquierda, 1 = derecha)
+    posY        = 0.5,  -- fraccion del espacio libre vertical (0 = arriba, 1 = abajo)
+  },
 }
 
 function M.notify(text)
@@ -16,15 +24,18 @@ function M.notify(text)
 end
 
 -- Ejecuta fn protegida; si falla, avisa en el menu y devuelve false.
-function M.safe(label, fn)
+function M.safe(label, fn, unavailableText)
   local ok, err = pcall(fn)
-  if not ok then M.notify(label .. ': no disponible (' .. tostring(err):sub(1, 70) .. ')') end
+  if not ok then
+    M.notify(label .. ': ' .. (unavailableText or 'no disponible')
+        .. ' (' .. tostring(err):sub(1, 70) .. ')')
+  end
   return ok
 end
 
-function M.sendChatCommand(cmd)
+function M.sendChatCommand(cmd, sentMessage)
   ac.sendChatMessage(cmd)
-  M.notify('Enviado: ' .. cmd)
+  M.notify(sentMessage or ('Enviado: ' .. cmd))
 end
 
 return M

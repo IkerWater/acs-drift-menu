@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace MapVotePlugin;
+namespace AcsDriftServerPlugin;
 
 /// <summary>API HTTP que consulta el menú del juego (lua/mapvote.lua).</summary>
 [ApiController]
 [Route("mapvote")]
 public class MapVoteController : ControllerBase
 {
-    private readonly MapVotePlugin _plugin;
+    private readonly AcsDriftServerPlugin _plugin;
     private readonly TrackCatalog _catalog;
 
-    public MapVoteController(MapVotePlugin plugin, TrackCatalog catalog)
+    public MapVoteController(AcsDriftServerPlugin plugin, TrackCatalog catalog)
     {
         _plugin = plugin;
         _catalog = catalog;
@@ -27,5 +27,8 @@ public class MapVoteController : ControllerBase
     // Solo en la compilación de pruebas: fuerza el cambio sin jugadores conectados
     [HttpPost("test/apply/{id:int}")]
     public IActionResult TestApply(int id) => Ok(_plugin.TestApply(id));
+
+    [HttpPost("test/preset/{id:int}")]
+    public IActionResult TestPreset(int id) => Ok(_plugin.TestPreset(id));
 #endif
 }

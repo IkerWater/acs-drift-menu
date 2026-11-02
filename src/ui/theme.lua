@@ -12,6 +12,35 @@ M.C = {
 }
 local C = M.C
 
+-- RGB base del fondo (sin alpha) para poder recalcular al cambiar transparencia.
+local BG_R, BG_G, BG_B = 0.045, 0.045, 0.070
+
+-- Presets de color de acento. Mismo estilo que el verde original: tono oscuro
+-- para botones/bordes (c) y version viva para hover y detalles (hi).
+M.ACCENTS = {
+  { name = 'color.green',  c = rgbm(0.120, 0.500, 0.280, 0.80), hi = rgbm(0.250, 0.950, 0.480, 1.00) },
+  { name = 'color.purple', c = rgbm(0.360, 0.200, 0.620, 0.80), hi = rgbm(0.620, 0.400, 1.000, 1.00) },
+  { name = 'color.orange', c = rgbm(0.620, 0.320, 0.100, 0.80), hi = rgbm(1.000, 0.600, 0.250, 1.00) },
+  { name = 'color.blue',   c = rgbm(0.080, 0.400, 0.500, 0.80), hi = rgbm(0.250, 0.850, 0.950, 1.00) },
+  { name = 'color.red',    c = rgbm(0.600, 0.100, 0.100, 0.80), hi = rgbm(1.000, 0.200, 0.200, 1.00) },
+}
+
+function M.applyAccent(index)
+  local a = M.ACCENTS[index] or M.ACCENTS[1]
+  C.accent, C.accentHi = a.c, a.hi
+end
+
+function M.applyBgAlpha(alpha)
+  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.01, math.min(1.0, alpha)))
+end
+
+-- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).
+function M.textWidth(text)
+  local ok, size = pcall(ui.measureText, text)
+  if ok and size and size.x then return size.x end
+  return #text * 8
+end
+
 -- Texto grande: usa dwrite si el SDK lo ofrece; si no, texto normal.
 function M.bigText(text, size, color)
   if ui.dwriteText then
@@ -24,9 +53,7 @@ function M.bigText(text, size, color)
 end
 
 function M.smallText(text, color)
-  ui.pushFont(ui.Font.Small)
   ui.textColored(text, color or C.dim)
-  ui.popFont()
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
@@ -44,7 +71,7 @@ end
 
 function M.sectionTitle(text, color)
   ui.dummy(vec2(0, 4))
-  M.smallText(string.upper(text), color or C.accent)
+  M.smallText(string.upper(text), color or C.accentHi)
   ui.dummy(vec2(0, 2))
 end
 

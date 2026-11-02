@@ -1,18 +1,17 @@
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
+  version = 'v0.5',
   toggleKey = ui.KeyIndex.M,
 
-  -- Coches ofrecidos ('id' = carpeta del coche, 'skins' = carpetas de skin).
-  -- Deben existir como entradas en el entry_list del servidor.
-  cars = {
-    { id = 'tunermnrcars_eskuko_missile_e36coupe',   name = 'Eskuko Missile E36 Coupe',   skins = { 'default', 'Titanio' } },
-    { id = 'tunermnrcars_eskuko_missile_e36compact', name = 'Eskuko Missile E36 Compact', skins = { 'default', 'JulenArjona' } },
-  },
+  -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
+  -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
+  -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
+  -- entry_list del preset/servidor; el menu lo recoge solo.
 
-  -- Datos del servidor para reconectar (cambio de coche/skin).
+  -- Datos opcionales del servidor para reconectar. Dejando host y password vacios reconecta con los datos que tenia.
   server = { host = '', port = 9600, httpPort = 8081, password = '' },
 
-  -- Comandos de chat del plugin MapVotePlugin (votacion de mapa independiente de los presets).
+  -- Comandos de chat del plugin AcsDriftServerPlugin (votacion de mapa independiente de los presets).
   commands = {
     mapStart = '/mapstart %d',
     mapYes   = '/mapyes',
