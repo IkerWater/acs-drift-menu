@@ -2,7 +2,8 @@
 
 Plugin de servidor para ACS Drift (antes MapVotePlugin). Da al menú CSP de ACS Drift los coches con plazas
 libres, el estado de administrador y los presets disponibles. Permite votar circuitos o que un administrador
-cambie directamente el preset activo; AssettoServer se reinicia por dentro y los jugadores se reconectan solos.
+cambie directamente el preset activo; AssettoServer se reinicia por dentro. La reconexión automática solo se
+usa al cambiar de circuito.
 
 ## Instalar (sustituye a MapVotePlugin)
 1. Para el servidor.
@@ -25,8 +26,7 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Los presets se leen de `presets/<carpeta>/server_cfg.ini` al arrancar el servidor (un preset creado después
   aparece tras el siguiente reinicio). Se muestran con el nombre que tienen en AC Panel. Al elegir uno se avisa
   a todos, se muestra la cuenta atrás y el servidor se reinicia por dentro con ese preset; no edita sus archivos.
-- Si el preset nuevo tiene otros coches, la reconexión automática puede no encontrar el coche que llevabas:
-  en ese caso vuelve a entrar desde Content Manager.
+  No hay reconexión automática: espera en Content Manager y elige manualmente un coche de la nueva lista.
 - Un reinicio desde Pterodactyl o AC Panel vuelve a la configuración de arranque, salvo que en AC Panel tengas
   "Configuración al arrancar" en "el último preset que estuvo en pista".
 

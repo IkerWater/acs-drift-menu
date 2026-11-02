@@ -484,7 +484,9 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private async Task ApplyPresetChangeAsync(PresetEntry preset, CancellationToken token)
     {
-        await NotifyAndRestartAsync(preset.Name, preset.Folder, token);
+        Broadcast($"Cambiando al preset {preset.Name}: el servidor se reiniciará en {_config.TransitionSeconds} s. " +
+                  "Espera en Content Manager y elige manualmente un coche de la nueva lista al volver.");
+        await RestartAsync(preset.Name, preset.Folder, _config.TransitionSeconds, token);
     }
 
     private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)
@@ -502,8 +504,12 @@ public class AcsDriftServerPlugin : BackgroundService
             _entryCarManager.BroadcastPacket(new KickCar { SessionId = 255, Reason = KickReason.Kicked });
         }
 
-        // El reinicio va 1 s antes de que el script del cliente se reconecte
-        await Task.Delay(Math.Max(1, _config.TransitionSeconds - 1) * 1000, token);
+        await RestartAsync(name, preset, Math.Max(1, _config.TransitionSeconds - 1), token);
+    }
+
+    private async Task RestartAsync(string name, string? preset, int delaySeconds, CancellationToken token)
+    {
+        await Task.Delay(delaySeconds * 1000, token);
         Log.Information("ACS Drift Server: reiniciando el servidor con {Name}", name);
         Program.RestartServer(
             preset,
