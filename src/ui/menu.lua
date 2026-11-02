@@ -14,7 +14,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
   { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 260, draw = import('ui/tabs/admin'),
+  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
     visible = function() return admin.data.isAdmin end },
 }
 

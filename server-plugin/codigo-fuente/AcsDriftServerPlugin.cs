@@ -11,9 +11,9 @@ using Serilog;
 namespace AcsDriftServerPlugin;
 
 /// <summary>
-/// Servicios de servidor para el menú ACS Drift: API de coches, estado de administrador,
-/// votación pública de circuito y acciones administrativas. Los cambios de circuito se
-/// aplican reiniciando AssettoServer dentro del mismo proceso.
+/// Servicios de servidor para el menú ACS Drift: API de coches y presets, estado de administrador,
+/// votación pública de circuito y acciones administrativas. Los cambios se aplican reiniciando
+/// AssettoServer dentro del mismo proceso.
 /// </summary>
 public class AcsDriftServerPlugin : BackgroundService
 {
@@ -36,10 +36,12 @@ public class AcsDriftServerPlugin : BackgroundService
     private readonly ACServerConfiguration _serverConfig;
     private readonly EntryCarManager _entryCarManager;
     private readonly TrackCatalog _catalog;
+    private readonly PresetCatalog _presetCatalog;
 
     private readonly object _lock = new();
     private VoteState? _vote;
     private TrackEntry? _pendingEntry;
+    private PresetEntry? _pendingPreset;
     private DateTime _pendingAt;
     private DateTime _nextAllowedStart = DateTime.MinValue;
     private bool _restarting;
@@ -48,6 +50,7 @@ public class AcsDriftServerPlugin : BackgroundService
         ACServerConfiguration serverConfig,
         EntryCarManager entryCarManager,
         TrackCatalog catalog,
+        PresetCatalog presetCatalog,
         CSPServerScriptProvider scriptProvider,
         CSPClientMessageTypeManager clientMessageTypeManager,
         CSPFeatureManager cspFeatureManager)
@@ -56,6 +59,7 @@ public class AcsDriftServerPlugin : BackgroundService
         _serverConfig = serverConfig;
         _entryCarManager = entryCarManager;
         _catalog = catalog;
+        _presetCatalog = presetCatalog;
 
         if (serverConfig.Extra.EnableClientMessages)
         {
@@ -68,6 +72,7 @@ public class AcsDriftServerPlugin : BackgroundService
 
             clientMessageTypeManager.RegisterOnlineEvent<MapVoteActionPacket>(OnAction);
             clientMessageTypeManager.RegisterOnlineEvent<AdminStatusRequestPacket>(OnAdminStatusRequest);
+            clientMessageTypeManager.RegisterOnlineEvent<AdminPresetChangePacket>(OnAdminPresetChange);
             // VotingPresetPlugin también la declara y añadirla dos veces rompe el arranque:
             // si ese plugin está activado, se la dejamos a él.
             var votingPreset = serverConfig.Extra.EnablePlugins?.Any(p =>
@@ -133,12 +138,23 @@ public class AcsDriftServerPlugin : BackgroundService
         });
     }
 
+    private void OnAdminPresetChange(ACTcpClient client, AdminPresetChangePacket packet)
+    {
+        if (!client.IsAdministrator)
+        {
+            Send(client, "Esta acción requiere permisos de administrador.");
+            return;
+        }
+
+        AdminSetPreset(client, packet.PresetId);
+    }
+
     // ------------------------------------------------------------------ acciones de jugador
     internal void StartVote(ACTcpClient client, int id)
     {
         lock (_lock)
         {
-            if (_pendingEntry != null || _restarting) { Send(client, "Ya se está cambiando de circuito."); return; }
+            if (_pendingEntry != null || _pendingPreset != null || _restarting) { Send(client, "Ya se está cambiando de circuito o preset."); return; }
             if (_vote != null) { Send(client, "Ya hay una votación en curso. Vota con /mapyes o /mapno."); return; }
 
             var now = DateTime.UtcNow;
@@ -212,11 +228,45 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (_restarting) { Send(client, "Ya se está cambiando de circuito."); return; }
+            if (_restarting || _pendingEntry != null || _pendingPreset != null) { Send(client, "Ya se está cambiando de circuito o preset."); return; }
             if (!_catalog.TryGet(id, out var entry)) { Send(client, "Número no válido. Mira la lista con /maplist."); return; }
             _vote = null;
             _pendingEntry = entry;
             Approve("Cambio forzado por un administrador");
+        }
+    }
+
+    internal void AdminSetPreset(ACTcpClient client, int id)
+    {
+        lock (_lock)
+        {
+            if (!client.IsAdministrator)
+            {
+                Send(client, "Esta acción requiere permisos de administrador.");
+                return;
+            }
+            if (_restarting || _pendingEntry != null || _pendingPreset != null)
+            {
+                Send(client, "Ya hay un cambio en curso.");
+                return;
+            }
+            if (!_presetCatalog.TryGet(id, out var preset))
+            {
+                Send(client, "Preset no válido. Recarga el menú y vuelve a intentarlo.");
+                return;
+            }
+            if (preset.IsCurrent)
+            {
+                Send(client, "Ese preset ya está activo.");
+                return;
+            }
+
+            _vote = null;
+            _pendingPreset = preset;
+            _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
+            var totalSeconds = _config.ChangeDelaySeconds + _config.TransitionSeconds;
+            Broadcast($"Un administrador cambia al preset {preset.Name}. El servidor se reiniciará en {totalSeconds} s.");
+            Log.Information("ACS Drift Server: cambio de preset programado a {Name}", preset.Name);
         }
     }
 
@@ -238,9 +288,10 @@ public class AcsDriftServerPlugin : BackgroundService
         lock (_lock)
         {
             if (_restarting) { Send(client, "Demasiado tarde: el servidor ya se está reiniciando."); return; }
-            if (_vote == null && _pendingEntry == null) { Send(client, "No hay nada que cancelar."); return; }
+            if (_vote == null && _pendingEntry == null && _pendingPreset == null) { Send(client, "No hay nada que cancelar."); return; }
             _vote = null;
             _pendingEntry = null;
+            _pendingPreset = null;
             Broadcast("Votación o cambio cancelado por un administrador.");
         }
     }
@@ -297,9 +348,11 @@ public class AcsDriftServerPlugin : BackgroundService
                 connectedAtStart = v?.ConnectedAtStart ?? 0,
                 secondsLeft = v == null ? 0 : Remaining(v.EndsAt),
                 cooldownLeft = Remaining(_nextAllowedStart),
-                changing = _pendingEntry != null || _restarting,
-                changingTo = _pendingEntry?.Name,
-                changeInSeconds = _pendingEntry == null ? 0 : Remaining(_pendingAt) + _config.TransitionSeconds,
+                changing = _pendingEntry != null || _pendingPreset != null || _restarting,
+                changingTo = _pendingEntry?.Name ?? _pendingPreset?.Name,
+                changeInSeconds = _pendingEntry == null && _pendingPreset == null
+                    ? 0
+                    : Remaining(_pendingAt) + _config.TransitionSeconds,
                 voteDurationSeconds = _config.VoteDurationSeconds
             };
         }
@@ -311,6 +364,7 @@ public class AcsDriftServerPlugin : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             TrackEntry? toApply = null;
+            PresetEntry? presetToApply = null;
             try
             {
                 lock (_lock)
@@ -328,10 +382,18 @@ public class AcsDriftServerPlugin : BackgroundService
                         _pendingEntry = null;
                         _restarting = true;
                     }
+                    else if (_pendingPreset != null && now >= _pendingAt && !_restarting)
+                    {
+                        presetToApply = _pendingPreset;
+                        _pendingPreset = null;
+                        _restarting = true;
+                    }
                 }
 
                 if (toApply != null)
                     await ApplyChangeAsync(toApply, stoppingToken);
+                else if (presetToApply != null)
+                    await ApplyPresetChangeAsync(presetToApply, stoppingToken);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
@@ -406,14 +468,24 @@ public class AcsDriftServerPlugin : BackgroundService
             Log.Information("ACS Drift Server: {Path} -> {Track} / '{Layout}'", path, newTrack, entry.Layout);
         }
 
+        await NotifyAndRestartAsync(entry.Name, fromPreset ? null : _serverConfig.Preset, token);
+    }
+
+    private async Task ApplyPresetChangeAsync(PresetEntry preset, CancellationToken token)
+    {
+        await NotifyAndRestartAsync(preset.Name, preset.Name, token);
+    }
+
+    private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)
+    {
         if (_serverConfig.Extra.EnableClientMessages && _config.EnableReconnect)
         {
-            Broadcast($"Cargando {entry.Name}: te reconectamos solo en {_config.TransitionSeconds} s.");
+            Broadcast($"Cargando {name}: te reconectamos solo en {_config.TransitionSeconds} s.");
             _entryCarManager.BroadcastPacket(new MapVoteReconnectPacket { Time = (ushort)_config.TransitionSeconds });
         }
         else
         {
-            Broadcast($"Cargando {entry.Name}: el servidor se reinicia, vuelve a entrar en unos segundos.");
+            Broadcast($"Cargando {name}: el servidor se reinicia, vuelve a entrar en unos segundos.");
             await Task.Delay(1500, token);
             _entryCarManager.BroadcastPacket(new CSPKickBanMessageOverride { Message = KickReasonText });
             _entryCarManager.BroadcastPacket(new KickCar { SessionId = 255, Reason = KickReason.Kicked });
@@ -421,9 +493,9 @@ public class AcsDriftServerPlugin : BackgroundService
 
         // El reinicio va 1 s antes de que el script del cliente se reconecte
         await Task.Delay(Math.Max(1, _config.TransitionSeconds - 1) * 1000, token);
-        Log.Information("ACS Drift Server: reiniciando el servidor con {Name}", entry.Name);
+        Log.Information("ACS Drift Server: reiniciando el servidor con {Name}", name);
         Program.RestartServer(
-            fromPreset ? null : _serverConfig.Preset,
+            preset,
             portOverrides: new PortOverrides
             {
                 TcpPort = _serverConfig.Server.TcpPort,

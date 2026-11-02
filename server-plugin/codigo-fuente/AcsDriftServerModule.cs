@@ -12,6 +12,7 @@ public class AcsDriftServerModule : AssettoServerModule<MapVoteConfiguration>
         // en vez de impedir que arranque el servidor.
         builder.Register(_ => new MapVoteConfiguration()).AsSelf().SingleInstance().PreserveExistingDefaults();
         builder.RegisterType<TrackCatalog>().AsSelf().SingleInstance();
+        builder.RegisterType<PresetCatalog>().AsSelf().SingleInstance();
         builder.RegisterType<CarCatalog>().AsSelf().SingleInstance();
         builder.RegisterType<AcsDriftServerPlugin>().AsSelf().As<IHostedService>().SingleInstance();
     }

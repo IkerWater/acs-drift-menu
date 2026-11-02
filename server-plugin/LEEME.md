@@ -1,8 +1,8 @@
 # AcsDriftServerPlugin para AssettoServer 0.0.55-pre45
 
 Plugin de servidor para ACS Drift (antes MapVotePlugin). Da al menú CSP de ACS Drift los coches con plazas
-libres y el estado de administrador, y hace la votación libre de circuito: cambia el circuito y reinicia
-AssettoServer por dentro; los jugadores se reconectan solos.
+libres, el estado de administrador y los presets disponibles. Permite votar circuitos o que un administrador
+cambie directamente el preset activo; AssettoServer se reinicia por dentro y los jugadores se reconectan solos.
 
 ## Instalar (sustituye a MapVotePlugin)
 1. Para el servidor.
@@ -20,11 +20,15 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 ## En el juego
 - Menú: en el chat de CSP, extras > "Votar circuito" (buscar, Proponer, A favor / En contra).
 - Chat: `/maplist [página]`, `/mapstart <n>`, `/mapyes`, `/mapno`, `/mapstatus`
-- Admin (`/admin <contraseña>`): `/mapset <n>` cambia ya, `/mapcancel`, `/mapreload`
+- Admin (`/admin <contraseña>`): el tab Admin permite elegir un preset y programar el reinicio; también
+  están `/mapset <n>`, `/mapcancel` y `/mapreload`.
+- Los presets se leen de `presets/<nombre>/server_cfg.ini`. Al elegir uno se avisa a todos y se muestra la
+  cuenta atrás de reconexión. La selección solo modifica el preset activo al reiniciar; no edita sus archivos.
 
 ## API HTTP (para menús Lua)
 - `GET /mapvote/tracks`: circuitos instalados (id, carpeta, layout, nombre).
 - `GET /mapvote/status`: estado de la votación.
+- `GET /admin/presets`: presets disponibles (id, nombre y si es el activo).
 - `GET /cars/list`: coches del entry list con plazas libres ahora (`[{"id","name","free","total"}]`);
   el tráfico IA no cuenta como plaza libre.
 
@@ -35,6 +39,8 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   `ACP_AdminStatusResponse` (servidor → solo quien pregunta): `isAdmin` 1 si esa conexión ha hecho
   `/admin <contraseña>`. Pídelo después de `/admin`. Solo sirve para mostrar u ocultar opciones;
   los comandos de admin se comprueban siempre en el servidor.
+- `ACP_AdminPresetChange` (cliente → servidor, campo `presetId`): solicita cambiar al preset indicado.
+  El servidor comprueba `IsAdministrator` antes de aceptar la solicitud y emitir el aviso/reinicio.
 
 ## Notas
 - Compilado contra AssettoServer v0.0.55-pre45. Si actualizas AssettoServer, hay que recompilarlo.

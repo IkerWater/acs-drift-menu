@@ -18,6 +18,14 @@ public class AdminStatusResponsePacket : OnlineEvent<AdminStatusResponsePacket>
     public byte IsAdmin;
 }
 
+/// <summary>Cliente → servidor: solicita cambiar a un preset; el servidor valida que sea admin.</summary>
+[OnlineEvent(Key = "ACP_AdminPresetChange")]
+public class AdminPresetChangePacket : OnlineEvent<AdminPresetChangePacket>
+{
+    [OnlineEventField(Name = "presetId")]
+    public ushort PresetId;
+}
+
 /// <summary>Cliente → servidor: acción del menú (1 = proponer, 2 = a favor, 3 = en contra).</summary>
 [OnlineEvent(Key = "ACP_MapVoteAction")]
 public class MapVoteActionPacket : OnlineEvent<MapVoteActionPacket>

@@ -18,7 +18,7 @@ function script.update(dt)
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
-  admin.update(dt)
+  admin.update(dt, core.state.open and core.state.tab == 'admin')
 end
 
 function script.drawUI(dt)
