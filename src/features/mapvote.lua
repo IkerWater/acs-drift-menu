@@ -1,9 +1,16 @@
--- Votacion de mapa (servidor: MapVotePlugin).
--- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
-local CONFIG = import('config')
+-- Votacion de mapa (servidor: AcsDriftServerPlugin).
+-- La lista y el estado se leen por HTTP; las acciones se envian por evento online.
 local core = import('core')
+local net = import('net')
+local I18N = import('i18n')
 
 local M = {}
+
+local actionEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_MapVoteAction'),
+  action = ac.StructItem.uint8(),
+  id = ac.StructItem.uint16(),
+})
 
 -- Estado que lee la UI
 local mapvote = {
@@ -14,56 +21,45 @@ local mapvote = {
 }
 M.data = mapvote
 
-local function serverBaseUrl()
-  local host, port = CONFIG.server.host, CONFIG.server.httpPort
-  if ac.getServerIP then
-    local ok, v = pcall(ac.getServerIP)
-    if ok and v and v ~= '' then host = v end
-  end
-  if ac.getServerHTTPPort then
-    local ok, v = pcall(ac.getServerHTTPPort)
-    if ok and v and v > 0 then port = v end
-  end
-  return string.format('http://%s:%d', host, port)
-end
-
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
-local function httpGetJson(path, callback)
-  local ok, err = pcall(function()
-    web.get(serverBaseUrl() .. path, function(e, response)
-      if e or not response or response.status ~= 200 then
-        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
-      end
-      local parsedOk, data = pcall(JSON.parse, response.body)
-      if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
-    end)
-  end)
-  if not ok then callback(nil, tostring(err)) end
-end
-
 function M.loadTracks()
   mapvote.tracksState = 'loading'
-  httpGetJson('/mapvote/tracks', function(data, err)
+  net.getJson('/mapvote/tracks', function(data, err)
     if data then
       mapvote.tracks, mapvote.tracksState = data, 'ok'
     else
       mapvote.tracksState = 'error'
-      core.notify('Lista de mapas: ' .. tostring(err))
+      core.notify(I18N.get('track.list_error', tostring(err)))
     end
   end)
 end
 
 local function pollStatus()
-  httpGetJson('/mapvote/status', function(data, err)
+  net.getJson('/mapvote/status', function(data, err)
     mapvote.status, mapvote.statusError = data, err
     if data and not data.active then mapvote.myVote, mapvote.myVoteFor = nil, nil end
   end)
 end
 
--- active = true cuando la pestana de circuito esta visible (decide la UI, no este modulo).
+function M.retry()
+  M.loadTracks()
+  pollStatus()
+end
+
+local function sendAction(action, id)
+  local ok, err = pcall(function()
+    actionEvent({ action = action, id = id or 0 })
+  end)
+  if not ok then
+    core.notify(I18N.get('track.action_error', tostring(err)))
+    ac.log('[ACS Menu] Track vote action failed: ' .. tostring(err))
+    return false
+  end
+  mapvote.pollTimer = 0.4
+  return true
+end
+
 function M.update(dt, active)
-  if not active then return end
-  if mapvote.tracksState == 'idle' then M.loadTracks() end
+  if active and mapvote.tracksState == 'idle' then M.loadTracks() end
   mapvote.pollTimer = mapvote.pollTimer - dt
   if mapvote.pollTimer <= 0 then
     mapvote.pollTimer = 1.5
@@ -72,15 +68,13 @@ function M.update(dt, active)
 end
 
 function M.propose(entry)
-  core.sendChatCommand(string.format(CONFIG.commands.mapStart, entry.id))
-  mapvote.pollTimer = 0.4
+  sendAction(1, entry.id)
 end
 
 function M.castVote(yes)
-  core.sendChatCommand(yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo)
+  if not sendAction(yes and 2 or 3) then return end
   mapvote.myVote = yes
   mapvote.myVoteFor = mapvote.status and mapvote.status.proposal and mapvote.status.proposal.id or nil
-  mapvote.pollTimer = 0.4
 end
 
 return M

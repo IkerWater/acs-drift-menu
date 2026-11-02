@@ -2,5 +2,5 @@
 cd /d "%~dp0"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0build.ps1"
 echo.
-echo Proceso terminado. Pulsa una tecla para cerrar esta ventana.
+echo Proceso terminado. Pulsa una tecla para cerrar esta ventana. Hora de generacion: %date% %time%
 pause >nul

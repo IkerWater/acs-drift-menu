@@ -20,7 +20,7 @@ def main():
     files = sorted(SRC.rglob('*.lua'), key=lambda p: module_name(p))
     parts = [
         '-- ACS Drift by Water - script ONLINE para CSP',
-        f'-- ARCHIVO GENERADO por build.py ({datetime.datetime.now():%Y-%m-%d %H:%M}). No lo edites: edita src/.',
+        f'-- GENERADO EL ({datetime.datetime.now():%Y-%m-%d %H:%M}).',
         '-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.',
         '',
         'local __modules, __cache = {}, {}',

@@ -1,15 +1,15 @@
--- MapVotePlugin · menú "Votar circuito" (CSP) y reconexión automática al cambiar de circuito.
--- Este archivo se puede editar: el servidor lo vuelve a leer al reiniciar.
+-- AcsDriftServerPlugin: CSP track-voting menu and automatic reconnect after track changes.
+-- The server reloads this file when it restarts.
 
 local baseUrl = 'http://' .. ac.getServerIP() .. ':' .. ac.getServerPortHTTP() .. '/mapvote/'
 local ORANGE = rgbm(0.94, 0.64, 0.23, 1)
 local GREEN = rgbm(0.22, 0.85, 0.54, 1)
 local GREY = rgbm(0.6, 0.63, 0.67, 1)
 
--- ---------------------------------------------------------------- reloj propio (segundos)
+-- ---------------------------------------------------------------- local clock (seconds)
 local clock = 0
 
--- ---------------------------------------------------------------- reconexión
+-- ---------------------------------------------------------------- reconnect
 local reconnectAt = nil
 local reconnectText = nil
 
@@ -17,12 +17,12 @@ ac.OnlineEvent({
   ac.StructItem.key('ACP_MapVoteReconnect'),
   time = ac.StructItem.uint16()
 }, function (sender, message)
-  if sender ~= nil then return end -- solo mensajes del servidor
+  if sender ~= nil then return end -- server messages only
   reconnectAt = clock + message.time
-  reconnectText = 'Cambiando de circuito…'
+  reconnectText = 'Changing track…'
 end)
 
--- ---------------------------------------------------------------- acciones hacia el servidor
+-- ---------------------------------------------------------------- actions to the server
 local actionEvent = ac.OnlineEvent({
   ac.StructItem.key('ACP_MapVoteAction'),
   action = ac.StructItem.uint8(),
@@ -33,7 +33,7 @@ local function propose(id) actionEvent({ action = 1, id = id }) end
 local function voteYes() actionEvent({ action = 2, id = 0 }) end
 local function voteNo() actionEvent({ action = 3, id = 0 }) end
 
--- ---------------------------------------------------------------- datos del servidor
+-- ---------------------------------------------------------------- server data
 local tracks, status = nil, nil
 local lastTracks, lastStatus = -100, -100
 local loadingTracks, loadingStatus = false, false
@@ -59,43 +59,43 @@ local function refresh(force)
   end
 end
 
--- ---------------------------------------------------------------- ventana
+-- ---------------------------------------------------------------- window
 local function drawMenu()
   refresh(false)
   local s = status
 
   if s and s.current then
-    ui.text('Ahora: ')
+    ui.text('Current track: ')
     ui.sameLine(0, 0)
     ui.textColored(s.current.name or '?', ORANGE)
   end
 
   if s and s.changing then
     ui.separator()
-    ui.textColored(string.format('Cambiando a %s en %d s…', s.changingTo or 'otro circuito', s.changeInSeconds or 0), GREEN)
+    ui.textColored(string.format('Changing to %s in %d s…', s.changingTo or 'another track', s.changeInSeconds or 0), GREEN)
     return false
   end
 
   if s and s.active and s.proposal then
     ui.separator()
-    ui.textWrapped(string.format('%s propone: %s', s.proposer or '?', s.proposal.name))
-    ui.text(string.format('A favor %d / %d necesarios · en contra %d · quedan %d s',
+    ui.textWrapped(string.format('%s proposes: %s', s.proposer or '?', s.proposal.name))
+    ui.text(string.format('%d / %d votes in favor · %d against · %d s remaining',
       s.yes or 0, s.needed or 0, s.no or 0, s.secondsLeft or 0))
-    if ui.button('A favor', vec2(110, 0)) then voteYes(); refresh(true) end
+    if ui.button('Yes', vec2(110, 0)) then voteYes(); refresh(true) end
     ui.sameLine()
-    if ui.button('En contra', vec2(110, 0)) then voteNo(); refresh(true) end
+    if ui.button('No', vec2(110, 0)) then voteNo(); refresh(true) end
     ui.separator()
   elseif s and (s.cooldownLeft or 0) > 0 then
-    ui.textColored(string.format('Podréis proponer otro circuito en %d s', s.cooldownLeft), GREY)
+    ui.textColored(string.format('You can propose another track in %d s', s.cooldownLeft), GREY)
   end
 
   if not tracks then
-    ui.text('Cargando circuitos…')
+    ui.text('Loading tracks…')
     return false
   end
 
   ui.setNextItemWidth(-1)
-  filter = ui.inputText('Buscar', filter, ui.InputTextFlags.Placeholder)
+  filter = ui.inputText('Search', filter, ui.InputTextFlags.Placeholder)
   local f = filter:lower()
   local canPropose = s and not s.active and (s.cooldownLeft or 0) == 0
 
@@ -105,12 +105,12 @@ local function drawMenu()
         ui.pushID(t.id)
         local current = s and s.current and s.current.track == t.track and (s.current.layout or '') == (t.layout or '')
         if current then
-          ui.textColored(t.name .. '  (actual)', ORANGE)
+          ui.textColored(t.name .. '  (current)', ORANGE)
         else
           ui.text(t.name)
           if canPropose then
             ui.sameLine(math.max(ui.windowWidth() - 110, 200))
-            if ui.button('Proponer') then propose(t.id); refresh(true) end
+            if ui.button('Propose') then propose(t.id); refresh(true) end
           end
         end
         ui.popID()
@@ -126,9 +126,9 @@ local function getIcon()
   return ui.Icons.Info
 end
 
-ui.registerOnlineExtra(getIcon(), 'Votar circuito', function () return true end, drawMenu, nil, ui.OnlineExtraFlags.Tool)
+ui.registerOnlineExtra(getIcon(), 'Track vote', function () return true end, drawMenu, nil, ui.OnlineExtraFlags.Tool)
 
--- ---------------------------------------------------------------- aviso y reconexión
+-- ---------------------------------------------------------------- notification and reconnect
 function script.drawUI()
   if reconnectAt then
     local w = ac.getUI().windowSize

@@ -1,5 +1,14 @@
 -- Skins locales: descubrimiento y aplicacion (solo cliente).
+local I18N = import('i18n')
 local M = {}
+
+local TEXTURE_EXTENSIONS = {
+  dds = true,
+  jpg = true,
+  jpeg = true,
+  png = true,
+  tga = true,
+}
 
 M.state = {
   carID = nil,
@@ -24,7 +33,15 @@ local function loadLocalSkins(carID)
 
     if io.dirExists(skinPath) then
       local label = name
+      local preview = skinPath .. '/preview.jpg'
       local skinJson = skinPath .. '/ui_skin.json'
+
+      if not io.fileExists(preview) then
+        preview = skinPath .. '/preview.png'
+        if not io.fileExists(preview) then
+          preview = nil
+        end
+      end
 
       -- El nombre visible es opcional:
       -- si no existe ui_skin.json, usamos el nombre de carpeta.
@@ -40,7 +57,7 @@ local function loadLocalSkins(carID)
         end
       end
 
-      skins[#skins + 1] = { id = name, label = label }
+      skins[#skins + 1] = { id = name, label = label, preview = preview }
     end
   end
 
@@ -72,19 +89,55 @@ function M.refresh()
 end
 
 function M.apply(skin)
+  if type(skin) ~= 'table' or type(skin.id) ~= 'string'
+      or type(skin.label) ~= 'string' then
+    M.state.message = I18N.get('skin.invalid')
+    return false
+  end
+
   local carID = ac.getCarID(0)
   local skinPath = ac.getFolder(ac.FolderID.ContentCars)
       .. '/' .. carID .. '/skins/' .. skin.id
 
   local ok, err = pcall(function()
-    ac.findNodes('carRoot:0'):applySkin(skinPath)
+    if not io.dirExists(skinPath) then
+      error(I18N.get('skin.folder_missing'))
+    end
+
+    local replacements = {}
+    for _, name in ipairs(io.scanDir(skinPath, '*') or {}) do
+      local extension = name:match('%.([^%.]+)$')
+      local texturePath = skinPath .. '/' .. name
+      if extension and TEXTURE_EXTENSIONS[extension:lower()]
+          and io.fileExists(texturePath) then
+        replacements[name] = texturePath
+      end
+    end
+    if next(replacements) == nil then
+      error(I18N.get('skin.textures_missing'))
+    end
+
+    local carRoot = ac.findNodes('carRoot:0')
+    if not carRoot then
+      error(I18N.get('skin.car_missing'))
+    end
+    if type(carRoot.applySkin) ~= 'function' then
+      error(I18N.get('skin.unsupported'))
+    end
+    if type(carRoot.resetSkin) ~= 'function' then
+      error(I18N.get('skin.reset_unsupported'))
+    end
+
+    carRoot:resetSkin()
+    carRoot:applySkin(replacements)
   end)
 
   if ok then
-    M.state.message = 'Skin aplicada localmente: ' .. skin.label
+    M.state.message = I18N.get('skin.local_applied', skin.label)
   else
-    M.state.message = 'Error al aplicar skin: ' .. tostring(err)
+    M.state.message = I18N.get('skin.apply_error', tostring(err))
   end
+  return ok
 end
 
 return M
