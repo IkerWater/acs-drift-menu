@@ -55,7 +55,7 @@ public class TrackCatalog
 
         if (!Directory.Exists(root))
         {
-            Log.Warning("ACS Drift Server: la carpeta de circuitos no existe: {Root}", Path.GetFullPath(root));
+            Log.Warning("ACS Drift Server: track folder does not exist: {Root}", Path.GetFullPath(root));
             _entries = Array.Empty<TrackEntry>();
             return;
         }
@@ -122,7 +122,7 @@ public class TrackCatalog
             .ToList();
 
         _entries = sorted;
-        Log.Information("ACS Drift Server: {Count} mapas/layouts encontrados en {Root}", sorted.Count, root);
+        Log.Information("ACS Drift Server: found {Count} tracks/layouts in {Root}", sorted.Count, root);
     }
 
     private static string? ReadName(string path)
@@ -153,7 +153,7 @@ public class TrackCatalog
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "ACS Drift Server: no se pudo leer {Path}", path);
+            Log.Debug(ex, "ACS Drift Server: could not read {Path}", path);
         }
 
         return null;

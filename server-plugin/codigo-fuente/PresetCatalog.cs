@@ -19,7 +19,7 @@ public class PresetCatalog
         const string presetsFolder = "presets";
         if (!Directory.Exists(presetsFolder))
         {
-            Log.Warning("ACS Drift Server: no se encuentra la carpeta de presets: {Path}",
+            Log.Warning("ACS Drift Server: preset folder not found: {Path}",
                 Path.GetFullPath(presetsFolder));
             _entries = Array.Empty<PresetEntry>();
             return;
@@ -36,7 +36,7 @@ public class PresetCatalog
                 string.Equals(name, currentPreset, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
-        Log.Information("ACS Drift Server: {Count} presets encontrados en {Path}",
+        Log.Information("ACS Drift Server: found {Count} presets in {Path}",
             _entries.Count, Path.GetFullPath(presetsFolder));
     }
 
@@ -74,7 +74,7 @@ public class PresetCatalog
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "ACS Drift Server: no se pudo leer el nombre del preset {Folder}", folder);
+            Log.Debug(ex, "ACS Drift Server: could not read preset name for {Folder}", folder);
         }
         return folder;
     }

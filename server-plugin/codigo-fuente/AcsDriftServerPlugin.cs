@@ -29,7 +29,8 @@ public class AcsDriftServerPlugin : BackgroundService
         public int No => Votes.Count(v => !v.Value);
     }
 
-    private const string Tag = "[Mapa]";
+    private const string Tag = "[Map]";
+    private const string PresetKickReasonText = "PRESET CHANGE: rejoin through Content Manager and choose a car";
 
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
@@ -67,7 +68,7 @@ public class AcsDriftServerPlugin : BackgroundService
             if (File.Exists(luaPath))
                 scriptProvider.AddScript(File.ReadAllText(luaPath), "mapvote.lua");
             else
-                Log.Warning("ACS Drift Server: no se encuentra {Path}; solo funcionarán los comandos de chat", luaPath);
+                Log.Warning("ACS Drift Server: {Path} not found; only chat commands will be available", luaPath);
 
             clientMessageTypeManager.RegisterOnlineEvent<MapVoteActionPacket>(OnAction);
             clientMessageTypeManager.RegisterOnlineEvent<AdminStatusRequestPacket>(OnAdminStatusRequest);
@@ -79,13 +80,13 @@ public class AcsDriftServerPlugin : BackgroundService
             if (!votingPreset)
             {
                 try { cspFeatureManager.Add(new CSPFeature { Name = "FREQUENT_TRACK_CHANGES" }); }
-                catch (ArgumentException) { Log.Debug("ACS Drift Server: FREQUENT_TRACK_CHANGES ya declarada por otro plugin"); }
+                catch (ArgumentException) { Log.Debug("ACS Drift Server: FREQUENT_TRACK_CHANGES already declared by another plugin"); }
             }
         }
         else
         {
-            Log.Warning("ACS Drift Server: EnableClientMessages está desactivado en extra_cfg.yml: " +
-                        "no habrá menú ni reconexión automática, solo comandos de chat");
+            Log.Warning("ACS Drift Server: EnableClientMessages is disabled in extra_cfg.yml: " +
+                        "the menu and automatic reconnect will be unavailable; only chat commands will work");
         }
     }
 
@@ -141,7 +142,7 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         if (!client.IsAdministrator)
         {
-            Send(client, "Esta acción requiere permisos de administrador.");
+            Send(client, "This action requires administrator privileges.");
             return;
         }
 
@@ -153,18 +154,18 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (_pendingEntry != null || _pendingPreset != null || _restarting) { Send(client, "Ya se está cambiando de circuito o preset."); return; }
-            if (_vote != null) { Send(client, "Ya hay una votación en curso. Vota con /mapyes o /mapno."); return; }
+            if (_pendingEntry != null || _pendingPreset != null || _restarting) { Send(client, "A track or preset change is already in progress."); return; }
+            if (_vote != null) { Send(client, "A vote is already in progress. Vote with /mapyes or /mapno."); return; }
 
             var now = DateTime.UtcNow;
-            if (now < _nextAllowedStart) { Send(client, $"Espera {Remaining(_nextAllowedStart)} s para proponer otro circuito."); return; }
-            if (!_catalog.TryGet(id, out var entry)) { Send(client, "Número no válido. Mira la lista con /maplist."); return; }
+            if (now < _nextAllowedStart) { Send(client, $"Wait {Remaining(_nextAllowedStart)} s before proposing another track."); return; }
+            if (!_catalog.TryGet(id, out var entry)) { Send(client, "Invalid number. Check the list with /maplist."); return; }
 
             var (curTrack, curLayout) = CurrentTrack;
             if (string.Equals(entry.Track, curTrack, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(entry.Layout, curLayout, StringComparison.OrdinalIgnoreCase))
             {
-                Send(client, "Ya estáis en ese circuito.");
+                Send(client, "You are already on that track.");
                 return;
             }
 
@@ -179,8 +180,8 @@ public class AcsDriftServerPlugin : BackgroundService
             };
             _nextAllowedStart = now.AddSeconds(_config.CooldownSeconds);
 
-            Broadcast($"{_vote.ProposerName} propone: {entry.Name}. Hacen falta {_vote.Needed} de {connected} votos a favor. " +
-                      $"Vota con /mapyes o /mapno ({_config.VoteDurationSeconds} s).");
+            Broadcast($"{_vote.ProposerName} proposes: {entry.Name}. {_vote.Needed} of {connected} votes in favor are required. " +
+                      $"Vote with /mapyes or /mapno ({_config.VoteDurationSeconds} s).");
 
             if (_config.ProposerVotesYes)
                 RegisterVote(client, true);
@@ -191,7 +192,7 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (_vote == null) { Send(client, "No hay ninguna votación en curso."); return; }
+            if (_vote == null) { Send(client, "There is no vote in progress."); return; }
             RegisterVote(client, yes);
         }
     }
@@ -201,13 +202,13 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         var vote = _vote!;
         vote.Votes[client.SessionId] = yes;
-        Send(client, yes ? $"Voto a favor registrado ({vote.Yes}/{vote.Needed})." : $"Voto en contra registrado ({vote.Yes}/{vote.Needed} a favor).");
+        Send(client, yes ? $"Vote in favor recorded ({vote.Yes}/{vote.Needed})." : $"Vote against recorded ({vote.Yes}/{vote.Needed} in favor).");
         if (vote.Yes >= vote.Needed)
             Approve($"Aprobado ({vote.Yes}/{vote.Needed})");
         else if (vote.No > vote.ConnectedAtStart - vote.Needed)
         {
             // ya no puede salir: cerrarla antes de tiempo
-            Broadcast($"Votación rechazada: {vote.No} en contra. Seguimos en {CurrentName()}.");
+            Broadcast($"Vote rejected: {vote.No} against. Staying on {CurrentName()}.");
             _vote = null;
         }
     }
@@ -219,19 +220,19 @@ public class AcsDriftServerPlugin : BackgroundService
         _vote = null;
         _pendingEntry = entry;
         _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
-        Broadcast($"{why}: {entry.Name}. Cambiando de circuito en {_config.ChangeDelaySeconds + _config.TransitionSeconds} s.");
-        Log.Information("ACS Drift Server: aprobado {Name} ({Track}/{Layout})", entry.Name, entry.Track, entry.Layout);
+        Broadcast($"{why}: {entry.Name}. Track changes in {_config.ChangeDelaySeconds + _config.TransitionSeconds} s.");
+        Log.Information("ACS Drift Server: approved {Name} ({Track}/{Layout})", entry.Name, entry.Track, entry.Layout);
     }
 
     internal void AdminSet(ACTcpClient client, int id)
     {
         lock (_lock)
         {
-            if (_restarting || _pendingEntry != null || _pendingPreset != null) { Send(client, "Ya se está cambiando de circuito o preset."); return; }
-            if (!_catalog.TryGet(id, out var entry)) { Send(client, "Número no válido. Mira la lista con /maplist."); return; }
+            if (_restarting || _pendingEntry != null || _pendingPreset != null) { Send(client, "A track or preset change is already in progress."); return; }
+            if (!_catalog.TryGet(id, out var entry)) { Send(client, "Invalid number. Check the list with /maplist."); return; }
             _vote = null;
             _pendingEntry = entry;
-            Approve("Cambio forzado por un administrador");
+            Approve("Change forced by an administrator");
         }
     }
 
@@ -241,22 +242,22 @@ public class AcsDriftServerPlugin : BackgroundService
         {
             if (!client.IsAdministrator)
             {
-                Send(client, "Esta acción requiere permisos de administrador.");
+                Send(client, "This action requires administrator privileges.");
                 return;
             }
             if (_restarting || _pendingEntry != null || _pendingPreset != null)
             {
-                Send(client, "Ya hay un cambio en curso.");
+                Send(client, "A change is already in progress.");
                 return;
             }
             if (!_presetCatalog.TryGet(id, out var preset))
             {
-                Send(client, "Preset no válido. Recarga el menú y vuelve a intentarlo.");
+                Send(client, "Invalid preset. Reload the menu and try again.");
                 return;
             }
             if (preset.IsCurrent)
             {
-                Send(client, "Ese preset ya está activo.");
+                Send(client, "That preset is already active.");
                 return;
             }
 
@@ -264,8 +265,8 @@ public class AcsDriftServerPlugin : BackgroundService
             _pendingPreset = preset;
             _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
             var totalSeconds = _config.ChangeDelaySeconds + _config.TransitionSeconds;
-            Broadcast($"Un administrador cambia al preset {preset.Name}. El servidor se reiniciará en {totalSeconds} s.");
-            Log.Information("ACS Drift Server: cambio de preset programado a {Name}", preset.Name);
+            Broadcast($"An administrator is switching to preset {preset.Name}. The server will restart in {totalSeconds} s.");
+            Log.Information("ACS Drift Server: preset change to {Name} scheduled", preset.Name);
         }
     }
 
@@ -274,7 +275,7 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (!_presetCatalog.TryGet(id, out var preset)) return "id no válido";
+            if (!_presetCatalog.TryGet(id, out var preset)) return "invalid id";
             _pendingPreset = preset;
             _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
             return "ok: " + preset.Name;
@@ -285,7 +286,7 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (!_catalog.TryGet(id, out var entry)) return "id no válido";
+            if (!_catalog.TryGet(id, out var entry)) return "invalid id";
             _pendingEntry = entry;
             Approve("TEST");
             return "ok: " + entry.Name;
@@ -297,12 +298,12 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         lock (_lock)
         {
-            if (_restarting) { Send(client, "Demasiado tarde: el servidor ya se está reiniciando."); return; }
-            if (_vote == null && _pendingEntry == null && _pendingPreset == null) { Send(client, "No hay nada que cancelar."); return; }
+            if (_restarting) { Send(client, "Too late: the server is already restarting."); return; }
+            if (_vote == null && _pendingEntry == null && _pendingPreset == null) { Send(client, "There is nothing to cancel."); return; }
             _vote = null;
             _pendingEntry = null;
             _pendingPreset = null;
-            Broadcast("Votación o cambio cancelado por un administrador.");
+            Broadcast("Vote or change cancelled by an administrator.");
         }
     }
 
@@ -310,33 +311,33 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         const int perPage = 8;
         var entries = _catalog.Entries;
-        if (entries.Count == 0) { Send(client, "No hay circuitos instalados en el servidor."); return; }
+        if (entries.Count == 0) { Send(client, "No tracks are installed on the server."); return; }
         var pages = Math.Max(1, (int)Math.Ceiling(entries.Count / (double)perPage));
         page = Math.Clamp(page, 1, pages);
-        Send(client, $"Circuitos {page}/{pages} (propón uno con /mapstart <número>):");
+        Send(client, $"Tracks {page}/{pages} (propose one with /mapstart <number>):");
         foreach (var e in entries.Skip((page - 1) * perPage).Take(perPage))
             client.SendChatMessage($"  {e.Id} - {e.Name}");
-        if (page < pages) client.SendChatMessage($"  Más: /maplist {page + 1}");
+        if (page < pages) client.SendChatMessage($"  More: /maplist {page + 1}");
     }
 
     internal void SendStatus(ACTcpClient client)
     {
         lock (_lock)
         {
-            Send(client, $"Ahora: {CurrentName()}");
+            Send(client, $"Current track: {CurrentName()}");
             if (_pendingEntry != null)
-                Send(client, $"Cambiando a {_pendingEntry.Name} en {Remaining(_pendingAt) + _config.TransitionSeconds} s.");
+                Send(client, $"Changing to {_pendingEntry.Name} in {Remaining(_pendingAt) + _config.TransitionSeconds} s.");
             else if (_vote != null)
-                Send(client, $"Votación: {_vote.Entry.Name} · {_vote.Yes}/{_vote.Needed} a favor · {Remaining(_vote.EndsAt)} s.");
+                Send(client, $"Vote: {_vote.Entry.Name} · {_vote.Yes}/{_vote.Needed} in favor · {Remaining(_vote.EndsAt)} s.");
             else if (DateTime.UtcNow < _nextAllowedStart)
-                Send(client, $"Próxima votación posible en {Remaining(_nextAllowedStart)} s.");
+                Send(client, $"Another vote can be started in {Remaining(_nextAllowedStart)} s.");
         }
     }
 
     internal void Reload(ACTcpClient client)
     {
         _catalog.Reload();
-        Send(client, $"Lista recargada: {_catalog.Entries.Count} circuitos.");
+        Send(client, $"Track list reloaded: {_catalog.Entries.Count} tracks.");
     }
 
     // ------------------------------------------------------------------ estado para el menú (HTTP)
@@ -382,7 +383,7 @@ public class AcsDriftServerPlugin : BackgroundService
                     var now = DateTime.UtcNow;
                     if (_vote != null && now >= _vote.EndsAt)
                     {
-                        Broadcast($"Votación rechazada: {_vote.Yes}/{_vote.Needed} votos a favor. Seguimos en {CurrentName()}.");
+                        Broadcast($"Vote rejected: {_vote.Yes}/{_vote.Needed} votes in favor. Staying on {CurrentName()}.");
                         _vote = null;
                     }
 
@@ -408,7 +409,7 @@ public class AcsDriftServerPlugin : BackgroundService
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
-                Log.Error(ex, "ACS Drift Server: error en el bucle de control");
+                Log.Error(ex, "ACS Drift Server: error in control loop");
                 lock (_lock) _restarting = false;
             }
 
@@ -461,7 +462,7 @@ public class AcsDriftServerPlugin : BackgroundService
                 File.Copy(runningEntry, startupEntry + ".tmp", true);
                 File.Move(startupEntry + ".tmp", startupEntry, true);
             }
-            Log.Information("ACS Drift Server: copiado {From} a cfg/ (el preset no se modifica)", _serverConfig.BaseFolder);
+            Log.Information("ACS Drift Server: copied {From} to cfg/ (the preset is not modified)", _serverConfig.BaseFolder);
         }
 
         var targets = new List<string> { startupCfg };
@@ -483,23 +484,38 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private async Task ApplyPresetChangeAsync(PresetEntry preset, CancellationToken token)
     {
-        Broadcast($"Cambiando al preset {preset.Name}: el servidor se reiniciará en {_config.TransitionSeconds} s. " +
-                  "Espera en Content Manager y elige manualmente un coche de la nueva lista al volver.");
-        await RestartAsync(preset.Name, preset.Folder, _config.TransitionSeconds, token);
+        Broadcast($"Switching to preset {preset.Name}: the server will restart in {_config.TransitionSeconds} s. " +
+                  "Wait in Content Manager, then rejoin and choose a car from the new list.");
+        await Task.Delay(_config.TransitionSeconds * 1000, token);
+
+        var clients = _entryCarManager.ConnectedCars.Values
+            .Select(car => car.Client)
+            .Where(client => client != null)
+            .ToArray();
+        foreach (var client in clients)
+        {
+            await _entryCarManager.KickAsync(
+                client,
+                KickReason.Kicked,
+                "preset change",
+                PresetKickReasonText);
+        }
+
+        await RestartAsync(preset.Name, preset.Folder, 1, token);
     }
 
     private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)
     {
         if (_serverConfig.Extra.EnableClientMessages && _config.EnableReconnect)
         {
-            Broadcast($"Cargando {name}: te reconectamos solo en {_config.TransitionSeconds} s.");
+            Broadcast($"Loading {name}: you will be reconnected in {_config.TransitionSeconds} s.");
             _entryCarManager.BroadcastPacket(new MapVoteReconnectPacket { Time = (ushort)_config.TransitionSeconds });
         }
         else
         {
-            // Sin KickCar a SessionId 255: hace que el cliente se cierre (ACClient::onMessageTCP).
-            // Los jugadores se desconectan solos al reiniciarse el servidor.
-            Broadcast($"Cargando {name}: el servidor se reinicia, vuelve a entrar en unos segundos.");
+            // Do not broadcast KickCar with SessionId 255: it can crash the client.
+            // Players disconnect when the server restarts.
+            Broadcast($"Loading {name}: the server is restarting. Please rejoin in a few seconds.");
         }
 
         await RestartAsync(name, preset, Math.Max(1, _config.TransitionSeconds - 1), token);
@@ -508,7 +524,7 @@ public class AcsDriftServerPlugin : BackgroundService
     private async Task RestartAsync(string name, string? preset, int delaySeconds, CancellationToken token)
     {
         await Task.Delay(delaySeconds * 1000, token);
-        Log.Information("ACS Drift Server: reiniciando el servidor con {Name}", name);
+        Log.Information("ACS Drift Server: restarting server with {Name}", name);
         Program.RestartServer(
             preset,
             portOverrides: new PortOverrides

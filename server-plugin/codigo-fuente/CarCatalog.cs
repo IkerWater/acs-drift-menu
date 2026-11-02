@@ -85,7 +85,7 @@ public class CarCatalog
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "ACS Drift Server: no se pudo leer {Path}", path);
+            Log.Debug(ex, "ACS Drift Server: could not read {Path}", path);
         }
 
         return null;

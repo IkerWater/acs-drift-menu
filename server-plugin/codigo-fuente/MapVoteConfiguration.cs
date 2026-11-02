@@ -8,31 +8,31 @@ namespace AcsDriftServerPlugin;
 [UsedImplicitly(ImplicitUseKindFlags.Assign, ImplicitUseTargetFlags.WithMembers)]
 public class MapVoteConfiguration : IValidateConfiguration<MapVoteConfigurationValidator>
 {
-    [YamlMember(Description = "Carpeta con los circuitos instalados (relativa a la carpeta del servidor)")]
+    [YamlMember(Description = "Folder containing installed tracks (relative to the server folder)")]
     public string TracksFolder { get; init; } = "content/tracks";
 
-    [YamlMember(Description = "Segundos que dura una votación")]
+    [YamlMember(Description = "Vote duration in seconds")]
     public int VoteDurationSeconds { get; init; } = 60;
 
-    [YamlMember(Description = "Segundos de espera, desde que empieza una votación, hasta poder proponer otra")]
+    [YamlMember(Description = "Cooldown in seconds after a vote starts before another can be proposed")]
     public int CooldownSeconds { get; init; } = 120;
 
-    [YamlMember(Description = "Segundos entre aprobar la votación y avisar del cambio")]
+    [YamlMember(Description = "Seconds between a vote passing and announcing the change")]
     public int ChangeDelaySeconds { get; init; } = 10;
 
-    [YamlMember(Description = "Segundos entre el aviso y el reinicio (los jugadores se reconectan solos)")]
+    [YamlMember(Description = "Seconds between the announcement and restart")]
     public int TransitionSeconds { get; init; } = 5;
 
-    [YamlMember(Description = "Quien propone el cambio cuenta como voto a favor")]
+    [YamlMember(Description = "Whether the proposer counts as a vote in favor")]
     public bool ProposerVotesYes { get; init; } = true;
 
-    [YamlMember(Description = "Reconectar a los jugadores automáticamente (requiere EnableClientMessages); si es false se les expulsa con un aviso")]
+    [YamlMember(Description = "Automatically reconnect players after track changes (requires EnableClientMessages)")]
     public bool EnableReconnect { get; init; } = true;
 
-    [YamlMember(Description = "Además de cfg/, cambiar el circuito en todos los presets (por defecto los presets no se tocan)")]
+    [YamlMember(Description = "Change the track in all presets in addition to cfg/ (presets are not changed by default)")]
     public bool ApplyToAllPresets { get; init; } = false;
 
-    [YamlMember(Description = "Carpetas de circuito que no deben aparecer en la lista")]
+    [YamlMember(Description = "Track folders to exclude from the list")]
     public List<string> ExcludeTracks { get; init; } = [];
 }
 

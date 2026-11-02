@@ -16,7 +16,7 @@ public class MapVoteCommandModule : ACModuleBase
         _plugin = plugin;
     }
 
-    // Registra el error completo en el log (y lo resume al jugador) en vez del genérico de AssettoServer
+    // Log the full error and send a short summary to the player instead of AssettoServer's generic message.
     private void Run(string what, Action action)
     {
         try { action(); }
@@ -27,8 +27,8 @@ public class MapVoteCommandModule : ACModuleBase
             while (e != null) { chain.Add($"{e.GetType().FullName}: {e.Message}"); e = e.InnerException; }
             string trace;
             try { trace = ex.StackTrace ?? ""; } catch (Exception t) { trace = "(sin traza: " + t.Message + ")"; }
-            Log.Error("ACS Drift Server: fallo en {What}: {Chain}\n{Trace}", what, string.Join(" -> ", chain), trace);
-            try { Client?.SendChatMessage($"[Mapa] Error: {ex.Message}"); } catch { /* nada */ }
+            Log.Error("ACS Drift Server: failure in {What}: {Chain}\n{Trace}", what, string.Join(" -> ", chain), trace);
+            try { Client?.SendChatMessage($"[Map] Error: {ex.Message}"); } catch { /* nothing */ }
         }
     }
 

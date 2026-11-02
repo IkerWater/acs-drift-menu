@@ -19,7 +19,7 @@ usa al cambiar de circuito.
 Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 
 ## En el juego
-- Menú: en el chat de CSP, extras > "Votar circuito" (buscar, Proponer, A favor / En contra).
+- Menú: en el chat de CSP, extras > "Track vote" (search, Propose, Yes / No).
 - Chat: `/maplist [página]`, `/mapstart <n>`, `/mapyes`, `/mapno`, `/mapstatus`
 - Admin (`/admin <contraseña>`): el tab Admin permite elegir un preset y programar el reinicio; también
   están `/mapset <n>`, `/mapcancel` y `/mapreload`.
@@ -83,10 +83,16 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   para mostrar) son distintos. No uses `Name` para reiniciar.
 - Cualquier acción de admin que llegue por evento online tiene que comprobar `client.IsAdministrator` en el
   servidor, aunque el menú ya oculte el botón.
-- No enviar `KickCar` con `SessionId = 255` (broadcast): cierra el juego de los clientes. Para desconectar a
-  todos basta con reiniciar el servidor.
+- No enviar `KickCar` con `SessionId = 255` (broadcast): puede cerrar el juego del cliente. Para expulsar
+  jugadores al cambiar de preset, usar `EntryCarManager.KickAsync` con cada conexión real.
 
 ## Cambios
+
+### 2026-11-02 (d): desconexión de clientes al cambiar de preset
+- Al terminar la cuenta atrás, se expulsa cada conexión mediante `EntryCarManager.KickAsync`, que usa el
+  `SessionId` individual y cierra la conexión. Después se reinicia AssettoServer con el preset seleccionado.
+- Evita el `SessionId = 255` global que precedió al crash y muestra a los jugadores el motivo para volver a
+  entrar manualmente desde Content Manager.
 
 ### 2026-11-02 (c): cambio de preset sin reconexión automática
 - Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros
