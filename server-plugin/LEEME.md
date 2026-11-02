@@ -26,7 +26,8 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Los presets se leen de `presets/<carpeta>/server_cfg.ini` al arrancar el servidor (un preset creado después
   aparece tras el siguiente reinicio). Se muestran con el nombre que tienen en AC Panel. Al elegir uno se avisa
   a todos, se muestra la cuenta atrás y el servidor se reinicia por dentro con ese preset; no edita sus archivos.
-  No hay reconexión automática: espera en Content Manager y elige manualmente un coche de la nueva lista.
+  No hay reconexión automática: justo antes del reinicio se saca a todos con el aviso "CAMBIO DE PRESET";
+  espera en Content Manager, vuelve a entrar y elige un coche de la nueva lista.
 - Un reinicio desde Pterodactyl o AC Panel vuelve a la configuración de arranque, salvo que en AC Panel tengas
   "Configuración al arrancar" en "el último preset que estuvo en pista".
 
@@ -84,6 +85,14 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   servidor, aunque el menú ya oculte el botón.
 
 ## Cambios
+
+### 2026-11-02 (c): cambio de preset sin reconexión automática
+- Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros
+  coches); se avisa por chat de que hay que elegir coche a mano. `NotifyAndRestartAsync` se divide y el reinicio
+  pasa a `RestartAsync(name, preset, delaySeconds, token)`.
+- Añadido aquí: 1 s antes del reinicio se saca a los jugadores con el motivo "CAMBIO DE PRESET: vuelve a entrar
+  en unos segundos y elige coche" (`PresetKickReasonText`). Sin eso, el juego solo mostraba "conexión perdida".
+- Probado contra pre45: cambio forzado de `p1` a `p2`, carga `presets/p2/server_cfg.ini`.
 
 ### 2026-11-02 (b): cambio de preset desde el menú admin
 - Del colega:
