@@ -93,6 +93,12 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   `SessionId` individual y cierra la conexión. Después se reinicia AssettoServer con el preset seleccionado.
 - Evita el `SessionId = 255` global que precedió al crash y muestra a los jugadores el motivo para volver a
   entrar manualmente desde Content Manager.
+- Textos del juego (menú `lua/mapvote.lua`, mensajes del chat) y del log pasados al inglés. El menú del chat
+  de CSP se llama ahora "Track vote". Los comandos no cambian.
+- Revisado aquí: compila contra pre45. `EntryCarManager.KickAsync(client, KickReason.Kicked, motivo, mensaje)`
+  es lo mismo que usa el `/kick` de AssettoServer, con el SessionId de cada jugador. Siguen `Run(...)`,
+  `object _lock` y la copia de `entry_list.ini`. Probado el cambio forzado de `p1` a `p2` sin jugadores
+  conectados; la expulsión con jugadores dentro queda por probar en el juego.
 
 ### 2026-11-02 (c): cambio de preset sin reconexión automática
 - Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros
