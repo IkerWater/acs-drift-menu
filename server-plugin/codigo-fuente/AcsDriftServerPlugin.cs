@@ -31,7 +31,6 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private const string Tag = "[Mapa]";
     private const string KickReasonText = "CAMBIO DE CIRCUITO: vuelve a entrar en unos segundos";
-    private const string PresetKickReasonText = "CAMBIO DE PRESET: vuelve a entrar en unos segundos y elige coche";
 
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
@@ -487,11 +486,7 @@ public class AcsDriftServerPlugin : BackgroundService
     {
         Broadcast($"Cambiando al preset {preset.Name}: el servidor se reiniciará en {_config.TransitionSeconds} s. " +
                   "Espera en Content Manager y elige manualmente un coche de la nueva lista al volver.");
-        await Task.Delay(Math.Max(1, _config.TransitionSeconds - 1) * 1000, token);
-        // Se saca a los jugadores con el motivo a la vista: si no, el juego solo diría "conexión perdida"
-        _entryCarManager.BroadcastPacket(new CSPKickBanMessageOverride { Message = PresetKickReasonText });
-        _entryCarManager.BroadcastPacket(new KickCar { SessionId = 255, Reason = KickReason.Kicked });
-        await RestartAsync(preset.Name, preset.Folder, 1, token);
+        await RestartAsync(preset.Name, preset.Folder, _config.TransitionSeconds, token);
     }
 
     private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)

@@ -90,8 +90,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros
   coches); se avisa por chat de que hay que elegir coche a mano. `NotifyAndRestartAsync` se divide y el reinicio
   pasa a `RestartAsync(name, preset, delaySeconds, token)`.
-- Añadido aquí: 1 s antes del reinicio se saca a los jugadores con el motivo "CAMBIO DE PRESET: vuelve a entrar
-  en unos segundos y elige coche" (`PresetKickReasonText`). Sin eso, el juego solo mostraba "conexión perdida".
+- Quitado el envío de `KickCar` a `SessionId = 255` y `CSPKickBanMessageOverride` al cambiar de preset:
+  el informe de crash muestra errores al buscar ese session ID justo antes del crash nativo del cliente en
+  `ACClient::onMessageTCP`. Los clientes se desconectan cuando el servidor se reinicia.
 - Probado contra pre45: cambio forzado de `p1` a `p2`, carga `presets/p2/server_cfg.ini`.
 
 ### 2026-11-02 (b): cambio de preset desde el menú admin
