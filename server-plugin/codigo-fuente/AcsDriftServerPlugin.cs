@@ -31,6 +31,7 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private const string Tag = "[Map]";
     private const string PresetKickReasonText = "PRESET CHANGE: rejoin through Content Manager and choose a car";
+    private const int PresetKickDisplaySeconds = 2;
 
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
@@ -264,7 +265,7 @@ public class AcsDriftServerPlugin : BackgroundService
             _vote = null;
             _pendingPreset = preset;
             _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
-            var totalSeconds = _config.ChangeDelaySeconds + _config.TransitionSeconds;
+            var totalSeconds = _config.ChangeDelaySeconds + _config.TransitionSeconds + PresetKickDisplaySeconds;
             Broadcast($"An administrator is switching to preset {preset.Name}. The server will restart in {totalSeconds} s.");
             Log.Information("ACS Drift Server: preset change to {Name} scheduled", preset.Name);
         }
@@ -363,7 +364,8 @@ public class AcsDriftServerPlugin : BackgroundService
                 changingTo = _pendingEntry?.Name ?? _pendingPreset?.Name,
                 changeInSeconds = _pendingEntry == null && _pendingPreset == null
                     ? 0
-                    : Remaining(_pendingAt) + _config.TransitionSeconds,
+                    : Remaining(_pendingAt) + _config.TransitionSeconds +
+                      (_pendingPreset == null ? 0 : PresetKickDisplaySeconds),
                 voteDurationSeconds = _config.VoteDurationSeconds
             };
         }
@@ -484,24 +486,26 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private async Task ApplyPresetChangeAsync(PresetEntry preset, CancellationToken token)
     {
-        Broadcast($"Switching to preset {preset.Name}: the server will restart in {_config.TransitionSeconds} s. " +
+        Broadcast($"Switching to preset {preset.Name}: the server will restart in " +
+                  $"{_config.TransitionSeconds + PresetKickDisplaySeconds} s. " +
                   "Wait in Content Manager, then rejoin and choose a car from the new list.");
         await Task.Delay(_config.TransitionSeconds * 1000, token);
 
         var clients = _entryCarManager.ConnectedCars.Values
             .Select(car => car.Client)
-            .Where(client => client != null)
+            .OfType<ACTcpClient>()
             .ToArray();
         foreach (var client in clients)
         {
-            await _entryCarManager.KickAsync(
-                client,
-                KickReason.Kicked,
-                "preset change",
-                PresetKickReasonText);
+            client.SendPacket(new CSPKickBanMessageOverride { Message = PresetKickReasonText });
+            client.SendPacket(new KickCar { SessionId = client.SessionId, Reason = KickReason.Kicked });
         }
 
-        await RestartAsync(preset.Name, preset.Folder, 1, token);
+        await Task.Delay(TimeSpan.FromSeconds(PresetKickDisplaySeconds), token);
+        foreach (var client in clients)
+            await client.DisconnectAsync();
+
+        await RestartAsync(preset.Name, preset.Folder, 0, token);
     }
 
     private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)

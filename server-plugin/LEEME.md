@@ -84,21 +84,20 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Cualquier acción de admin que llegue por evento online tiene que comprobar `client.IsAdministrator` en el
   servidor, aunque el menú ya oculte el botón.
 - No enviar `KickCar` con `SessionId = 255` (broadcast): puede cerrar el juego del cliente. Para expulsar
-  jugadores al cambiar de preset, usar `EntryCarManager.KickAsync` con cada conexión real.
+  jugadores al cambiar de preset, enviar `KickCar` con el SessionId individual y cerrar las conexiones después
+  de que el aviso haya permanecido visible.
 
 ## Cambios
 
 ### 2026-11-02 (d): desconexión de clientes al cambiar de preset
-- Al terminar la cuenta atrás, se expulsa cada conexión mediante `EntryCarManager.KickAsync`, que usa el
-  `SessionId` individual y cierra la conexión. Después se reinicia AssettoServer con el preset seleccionado.
-- Evita el `SessionId = 255` global que precedió al crash y muestra a los jugadores el motivo para volver a
-  entrar manualmente desde Content Manager.
+- Al terminar la cuenta atrás, se envían a cada jugador los paquetes de aviso/expulsión usando su `SessionId`
+  individual. El aviso indica la cuenta atrás total; tras mostrar la pantalla de expulsión durante dos segundos
+  se cierran las conexiones y se reinicia AssettoServer con el preset seleccionado.
+- Evita el `SessionId = 255` global que precedió al crash y permite volver desde Content Manager tras el aviso.
 - Textos del juego (menú `lua/mapvote.lua`, mensajes del chat) y del log pasados al inglés. El menú del chat
   de CSP se llama ahora "Track vote". Los comandos no cambian.
-- Revisado aquí: compila contra pre45. `EntryCarManager.KickAsync(client, KickReason.Kicked, motivo, mensaje)`
-  es lo mismo que usa el `/kick` de AssettoServer, con el SessionId de cada jugador. Siguen `Run(...)`,
-  `object _lock` y la copia de `entry_list.ini`. Probado el cambio forzado de `p1` a `p2` sin jugadores
-  conectados; la expulsión con jugadores dentro queda por probar en el juego.
+- La desconexión tras el aviso usa paquetes con SessionId individual y `ACTcpClient.DisconnectAsync()`;
+  queda por probar en el juego con clientes conectados.
 
 ### 2026-11-02 (c): cambio de preset sin reconexión automática
 - Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros
@@ -109,7 +108,7 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   `ACClient::onMessageTCP`. Los clientes se desconectan cuando el servidor se reinicia.
 - Corregido aquí también en el cambio de circuito: cuando no hay reconexión automática (`EnableReconnect: false`
   o `EnableClientMessages: false`) se hacía el mismo `KickCar` a `SessionId = 255`. Quitado; solo queda el
-  aviso por chat. Ya no queda ningún `KickCar` en el plugin: no lo vuelvas a meter con 255.
+  aviso por chat en ese flujo. Se permite `KickCar` con el SessionId individual, nunca con 255.
 - Probado contra pre45: cambio forzado de `p1` a `p2`, carga `presets/p2/server_cfg.ini`.
 
 ### 2026-11-02 (b): cambio de preset desde el menú admin
