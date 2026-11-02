@@ -22,6 +22,7 @@ public class AdminPresetController : ControllerBase
             {
                 id = preset.Id,
                 name = preset.Name,
+                folder = preset.Folder,
                 current = preset.IsCurrent
             })
         });

@@ -3,7 +3,8 @@ using Serilog;
 
 namespace AcsDriftServerPlugin;
 
-public record PresetEntry(int Id, string Name, bool IsCurrent);
+/// <summary>Folder = carpeta en presets/ (lo que se pasa a AssettoServer); Name = nombre para mostrar.</summary>
+public record PresetEntry(int Id, string Folder, string Name, bool IsCurrent);
 
 /// <summary>Lista los presets disponibles en la carpeta presets/ del servidor.</summary>
 public class PresetCatalog
@@ -31,6 +32,7 @@ public class PresetCatalog
             .Select((name, id) => new PresetEntry(
                 id,
                 name,
+                DisplayName(presetsFolder, name),
                 string.Equals(name, currentPreset, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
@@ -48,6 +50,33 @@ public class PresetCatalog
 
         entry = null!;
         return false;
+    }
+
+    // Nombre que se ve en AC Panel (Meta.Name de plugin_voting_preset_cfg.yml); si no hay, el de la carpeta.
+    private static string DisplayName(string presetsFolder, string folder)
+    {
+        try
+        {
+            var path = Path.Combine(presetsFolder, folder, "plugin_voting_preset_cfg.yml");
+            if (File.Exists(path))
+            {
+                var inMeta = false;
+                foreach (var raw in File.ReadLines(path))
+                {
+                    if (raw.Length > 0 && !char.IsWhiteSpace(raw[0])) inMeta = raw.TrimEnd() == "Meta:";
+                    else if (inMeta && raw.TrimStart().StartsWith("Name:", StringComparison.Ordinal))
+                    {
+                        var v = raw.TrimStart()[5..].Trim().Trim('"', '\'');
+                        if (v.Length > 0) return v.Replace("\\\"", "\"");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "ACS Drift Server: no se pudo leer el nombre del preset {Folder}", folder);
+        }
+        return folder;
     }
 
     private static string? GetPresetName(string? preset)

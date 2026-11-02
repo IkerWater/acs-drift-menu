@@ -271,6 +271,17 @@ public class AcsDriftServerPlugin : BackgroundService
     }
 
 #if MAPVOTE_TEST
+    internal string TestPreset(int id)
+    {
+        lock (_lock)
+        {
+            if (!_presetCatalog.TryGet(id, out var preset)) return "id no válido";
+            _pendingPreset = preset;
+            _pendingAt = DateTime.UtcNow.AddSeconds(_config.ChangeDelaySeconds);
+            return "ok: " + preset.Name;
+        }
+    }
+
     internal string TestApply(int id)
     {
         lock (_lock)
@@ -473,7 +484,7 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private async Task ApplyPresetChangeAsync(PresetEntry preset, CancellationToken token)
     {
-        await NotifyAndRestartAsync(preset.Name, preset.Name, token);
+        await NotifyAndRestartAsync(preset.Name, preset.Folder, token);
     }
 
     private async Task NotifyAndRestartAsync(string name, string? preset, CancellationToken token)
