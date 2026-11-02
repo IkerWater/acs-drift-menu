@@ -103,7 +103,7 @@ end
 
 local function header()
   ui.dummy(vec2(0, 2))
-  local titleWidth, versionWidth, gap, rowHeight = 210, 42, 6, 42
+  local titleWidth, versionWidth, gap, rowHeight = 164, 42, 4, 42
   local leftSpace = math.max(0, (ui.availableSpaceX() - titleWidth) / 2)
   ui.indent(leftSpace)
   ui.dwriteTextAligned('ACS DRIFT', 35, ui.Alignment.Start, ui.Alignment.Center,
