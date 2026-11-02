@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 14:17).
+-- GENERADO EL (2026-11-02 14:21).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -903,8 +903,7 @@ end
 local function header()
   ui.dummy(vec2(0, 2))
   local titleWidth, versionWidth, gap, rowHeight = 210, 42, 6, 42
-  local groupWidth = titleWidth + gap + versionWidth
-  local leftSpace = math.max(0, (ui.availableSpaceX() - groupWidth) / 2)
+  local leftSpace = math.max(0, (ui.availableSpaceX() - titleWidth) / 2)
   ui.indent(leftSpace)
   ui.dwriteTextAligned('ACS DRIFT', 35, ui.Alignment.Start, ui.Alignment.Center,
       vec2(titleWidth, rowHeight), false, C.text)
@@ -912,8 +911,6 @@ local function header()
   ui.dwriteTextAligned(CONFIG.version, 16, ui.Alignment.Start, ui.Alignment.End,
       vec2(versionWidth, rowHeight), false, C.accentHi)
   ui.unindent(leftSpace)
-  ui.dwriteTextAligned('by Water', 20, ui.Alignment.End, ui.Alignment.Center,
-      vec2(ui.availableSpaceX(), 25), false, C.accentHi)
   ui.dummy(vec2(0, 6))
   accentLine()
 end
@@ -978,7 +975,9 @@ local function drawMenu()
   drawStatus()
   ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
   ui.newLine()
+  ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
   ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  ui.popStyleColor(1)
 end
 
 function M.drawWindow()
