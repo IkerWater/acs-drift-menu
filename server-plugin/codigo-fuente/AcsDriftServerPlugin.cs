@@ -37,7 +37,7 @@ public class AcsDriftServerPlugin : BackgroundService
     private readonly EntryCarManager _entryCarManager;
     private readonly TrackCatalog _catalog;
 
-    private readonly Lock _lock = new();
+    private readonly object _lock = new();
     private VoteState? _vote;
     private TrackEntry? _pendingEntry;
     private DateTime _pendingAt;
@@ -122,6 +122,9 @@ public class AcsDriftServerPlugin : BackgroundService
         }
     }
 
+    // ACTcpClient.IsAdministrator (comprobado en 0.0.55-pre45) es lo que mira [RequireAdmin], p.ej. /mapset.
+    // Solo sirve para que el menú muestre u oculte opciones: los comandos de admin lo siguen comprobando.
+    // Se responde solo a quien pregunta, nunca por broadcast.
     private static void OnAdminStatusRequest(ACTcpClient client, AdminStatusRequestPacket packet)
     {
         client.SendPacket(new AdminStatusResponsePacket
@@ -378,7 +381,15 @@ public class AcsDriftServerPlugin : BackgroundService
         {
             File.Copy(runningCfg, startupCfg + ".tmp", true);
             File.Move(startupCfg + ".tmp", startupCfg, true);
-            Log.Information("ACS Drift Server: copiado {From} a cfg/ (el preset no se modifica)", runningCfg);
+            // y sus coches: cada preset puede tener los suyos
+            var runningEntry = Path.Join(_serverConfig.BaseFolder, "entry_list.ini");
+            var startupEntry = Path.Join("cfg", "entry_list.ini");
+            if (File.Exists(runningEntry))
+            {
+                File.Copy(runningEntry, startupEntry + ".tmp", true);
+                File.Move(startupEntry + ".tmp", startupEntry, true);
+            }
+            Log.Information("ACS Drift Server: copiado {From} a cfg/ (el preset no se modifica)", _serverConfig.BaseFolder);
         }
 
         var targets = new List<string> { startupCfg };
