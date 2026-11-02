@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 13:55).
+-- GENERADO EL (2026-11-02 14:09).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-02 13:55'
+local genDate = '2026-11-02 14:09'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
