@@ -19,7 +19,7 @@ function M.draw()
   if not status or not status.active or not status.proposal then return end
 
   local screenWidth = screenSize()
-  local width, height, margin = 370, 190, 16
+  local width, height, margin = 370, 190, 32
   local position = vec2(math.max(margin, screenWidth - width - margin), margin)
 
   ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)

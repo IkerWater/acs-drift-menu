@@ -13,8 +13,8 @@ M.state = {
     accentIndex = 1,   -- indice en T.ACCENTS
     bgAlpha     = 0.15,
     closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
-    posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
-    posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
+    posX        = 0.5,  -- fraccion del espacio libre horizontal (0 = izquierda, 1 = derecha)
+    posY        = 0.5,  -- fraccion del espacio libre vertical (0 = arriba, 1 = abajo)
   },
 }
 

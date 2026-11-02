@@ -71,10 +71,10 @@ return function()
   T.sectionTitle(I18N.get('settings.position'))
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
-  local newX = styledSlider('##posx', s.posX, 0, 100, 'X: %.0f%%')
-  local newY = styledSlider('##posy', s.posY, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX then s.posX = newX end
-  if newY ~= s.posY then s.posY = newY end
+  local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
+  local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
+  if newX ~= s.posX * 100 then s.posX = newX / 100 end
+  if newY ~= s.posY * 100 then s.posY = newY / 100 end
 
     -- ── Comportamiento ───────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))

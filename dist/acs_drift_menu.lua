@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 15:30).
+-- GENERADO EL (2026-11-02 15:47).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -55,8 +55,8 @@ M.state = {
     accentIndex = 1,   -- indice en T.ACCENTS
     bgAlpha     = 0.15,
     closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
-    posX        = 10,    -- % del espacio libre horizontal (0 = pegado a la izquierda, 100 = a la derecha)
-    posY        = 15,    -- % del espacio libre vertical (0 = arriba, 100 = abajo)
+    posX        = 0.5,  -- fraccion del espacio libre horizontal (0 = izquierda, 1 = derecha)
+    posY        = 0.5,  -- fraccion del espacio libre vertical (0 = arriba, 1 = abajo)
   },
 }
 
@@ -1004,8 +1004,8 @@ function M.drawWindow()
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
-  local x = (s.posX / 100) * maxX
-  local y = (s.posY / 100) * maxY
+  local x = s.posX * maxX
+  local y = s.posY * maxY
 
   local mouse = ui.mousePos()
   local overHeader = mouse.x >= x and mouse.x <= x + w
@@ -1018,8 +1018,8 @@ function M.drawWindow()
       local delta = ui.mouseDelta()
       x = math.max(0, math.min(maxX, x + delta.x))
       y = math.max(0, math.min(maxY, y + delta.y))
-      s.posX = maxX > 0 and x / maxX * 100 or 0
-      s.posY = maxY > 0 and y / maxY * 100 or 0
+      s.posX = maxX > 0 and x / maxX or 0
+      s.posY = maxY > 0 and y / maxY or 0
     else
       dragging = false
     end
@@ -1250,10 +1250,10 @@ return function()
   T.sectionTitle(I18N.get('settings.position'))
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
-  local newX = styledSlider('##posx', s.posX, 0, 100, 'X: %.0f%%')
-  local newY = styledSlider('##posy', s.posY, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX then s.posX = newX end
-  if newY ~= s.posY then s.posY = newY end
+  local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
+  local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
+  if newX ~= s.posX * 100 then s.posX = newX / 100 end
+  if newY ~= s.posY * 100 then s.posY = newY / 100 end
 
     -- ── Comportamiento ───────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
@@ -1610,7 +1610,7 @@ function M.draw()
   if not status or not status.active or not status.proposal then return end
 
   local screenWidth = screenSize()
-  local width, height, margin = 370, 190, 16
+  local width, height, margin = 370, 190, 32
   local position = vec2(math.max(margin, screenWidth - width - margin), margin)
 
   ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)

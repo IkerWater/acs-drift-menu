@@ -189,8 +189,8 @@ function M.drawWindow()
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
-  local x = (s.posX / 100) * maxX
-  local y = (s.posY / 100) * maxY
+  local x = s.posX * maxX
+  local y = s.posY * maxY
 
   local mouse = ui.mousePos()
   local overHeader = mouse.x >= x and mouse.x <= x + w
@@ -203,8 +203,8 @@ function M.drawWindow()
       local delta = ui.mouseDelta()
       x = math.max(0, math.min(maxX, x + delta.x))
       y = math.max(0, math.min(maxY, y + delta.y))
-      s.posX = maxX > 0 and x / maxX * 100 or 0
-      s.posY = maxY > 0 and y / maxY * 100 or 0
+      s.posX = maxX > 0 and x / maxX or 0
+      s.posY = maxY > 0 and y / maxY or 0
     else
       dragging = false
     end

@@ -20,8 +20,8 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
 - **Administración:** muestra opciones de administrador únicamente a las conexiones
   reconocidas como administradores. Permite consultar los presets del servidor y
   solicitar un cambio directo, sin votación.
-- **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, tema
-  oscuro e idioma seleccionable entre inglés y español.
+- **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, centrada
+  por defecto, tema oscuro e idioma seleccionable entre inglés y español.
 
 ## Funciones del plugin de servidor
 
