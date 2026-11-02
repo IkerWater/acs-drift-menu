@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 14:09).
+-- GENERADO EL (2026-11-02 14:17).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -13,8 +13,6 @@ local function import(name)
   end
   return cached
 end
-
-local genDate = '2026-11-02 14:09'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -546,7 +544,7 @@ local strings = {
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Settings',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] to close | ACS Drift by Water | %s',
+    ['menu.footer'] = '[M] to close | ACS Drift by Water',
     ['car.title'] = 'Car',
     ['car.loading'] = 'Loading available cars...',
     ['car.server_error'] = 'Could not reach the server.',
@@ -652,7 +650,7 @@ local strings = {
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Ajustes',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] para cerrar | ACS Drift by Water | %s',
+    ['menu.footer'] = '[M] para cerrar | ACS Drift by Water',
     ['car.title'] = 'Coche',
     ['car.loading'] = 'Consultando coches disponibles...',
     ['car.server_error'] = 'No se pudo consultar el servidor.',
@@ -844,7 +842,7 @@ local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 
 local function footerText()
-  return I18N.get('menu.footer', genDate)
+  return I18N.get('menu.footer')
 end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
@@ -904,25 +902,16 @@ end
 
 local function header()
   ui.dummy(vec2(0, 2))
-  ui.pushFont(ui.Font.Title)
-  local titleWidth = T.textWidth('ACS DRIFT')
-  ui.popFont()
-  ui.pushFont(ui.Font.Small)
-  local versionWidth = T.textWidth(CONFIG.version)
-  ui.popFont()
-  local titleGroupWidth = titleWidth + versionWidth + 6
-  local leftSpace = math.max(0, (ui.availableSpaceX() - titleGroupWidth) / 2)
-
+  local titleWidth, versionWidth, gap, rowHeight = 210, 42, 6, 42
+  local groupWidth = titleWidth + gap + versionWidth
+  local leftSpace = math.max(0, (ui.availableSpaceX() - groupWidth) / 2)
   ui.indent(leftSpace)
-  ui.pushFont(ui.Font.Title)
-  ui.textColored('ACS DRIFT', C.text)
-  ui.popFont()
-  ui.sameLine(0, 6)
-  ui.pushFont(ui.Font.Small)
-  ui.textColored(CONFIG.version, C.accentHi)
-  ui.popFont()
+  ui.dwriteTextAligned('ACS DRIFT', 35, ui.Alignment.Start, ui.Alignment.Center,
+      vec2(titleWidth, rowHeight), false, C.text)
+  ui.sameLine(0, gap)
+  ui.dwriteTextAligned(CONFIG.version, 16, ui.Alignment.Start, ui.Alignment.End,
+      vec2(versionWidth, rowHeight), false, C.accentHi)
   ui.unindent(leftSpace)
-
   ui.dwriteTextAligned('by Water', 20, ui.Alignment.End, ui.Alignment.Center,
       vec2(ui.availableSpaceX(), 25), false, C.accentHi)
   ui.dummy(vec2(0, 6))
