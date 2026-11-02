@@ -1,12 +1,53 @@
-# ACS Drift by Water - menu (codigo fuente modular)
+# ACS Drift
 
-CSP carga un script online desde una sola URL, asi que se trabaja en varios ficheros
-y se empaquetan en uno solo antes de subirlo.
+ACS Drift es un menú para Assetto Corsa con Custom Shaders Patch (CSP), acompañado
+de un plugin para AssettoServer. Reúne herramientas para los pilotos y opciones
+de gestión para los administradores. El menú puede utilizarse sin el plugin; si no
+está disponible, las pestañas que dependen de él muestran un aviso de conexión.
 
-Los textos del menu se mantienen en `src/i18n.lua`. Actualmente hay ingles (idioma
-predeterminado) y espanol; se puede cambiar en la pestana Ajustes. CSP no expone en su
-API Lua documentada el idioma de la instalacion, por lo que la seleccion es manual y
-dura mientras esta cargado el script.
+## Funciones del menú
 
-La ventana se puede mover arrastrando la cabecera; tambien se puede ajustar su posicion
-horizontal y vertical desde Ajustes.
+- **Cambio de coche:** consulta los coches y las plazas disponibles en el servidor
+  para facilitar el cambio y la reconexión.
+- **Votación de circuito:** muestra los circuitos disponibles y el estado de la
+  votación; permite proponer un circuito y votar a favor o en contra.
+- **Cambio local de skin:** permite elegir una skin instalada localmente y aplicarla
+  a la vista del propio jugador.
+- **Teletransporte y reaparición:** guarda una ubicación, permite volver a ella o ir
+  a pits, y admite asignar una tecla o botón a la acción de retorno.
+- **Administración:** muestra opciones de administrador únicamente a las conexiones
+  reconocidas como administradores. Permite consultar los presets del servidor y
+  solicitar un cambio directo, sin votación.
+- **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, tema
+  oscuro e idioma seleccionable entre inglés y español.
+
+## Funciones del plugin de servidor
+
+- **Información en tiempo real:** proporciona al menú la lista de coches con plazas
+  libres, los circuitos disponibles, el estado de la votación y los presets
+  configurados en el servidor.
+- **Votaciones de circuito:** gestiona propuestas y votos, informa del resultado y
+  aplica los cambios aprobados. Puede coordinar la transición y la reconexión de los
+  jugadores según la configuración del servidor. Cambiar de circuito no modifica la
+  lista de coches del servidor.
+- **Herramientas de administración:** ofrece comandos para consultar circuitos y
+  votaciones, cancelar o recargar una votación y aplicar un circuito directamente.
+  Las acciones administrativas se validan en el servidor.
+- **Cambio de preset:** permite a un administrador elegir un preset, avisa a todos
+  los jugadores y programa el reinicio del servidor con la nueva configuración.
+  Como la lista de coches puede cambiar, los jugadores deben volver a entrar desde
+  Content Manager y elegir un coche manualmente. El flujo actual envía un aviso de
+  desconexión individual y espera dos segundos antes de cerrar las conexiones; esta
+  última secuencia está pendiente de validación en juego.
+- **Comandos para jugadores:** incluye consultas de circuitos y estado, además de
+  comandos para proponer circuitos y votar.
+
+## Notas
+
+- El cambio de skin es local: no modifica la skin de los demás jugadores.
+- El cambio de circuito y el cambio de preset son acciones distintas: el primero se
+  integra con el sistema de votación y conserva la lista de coches; el cambio de
+  preset lo inicia directamente un administrador y es la función prevista para
+  cambiar los coches disponibles.
+- El idioma predeterminado del menú es inglés. El selector permite cambiarlo a
+  español durante la sesión.
