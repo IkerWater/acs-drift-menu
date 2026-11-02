@@ -10,7 +10,9 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
 - **Cambio de coche:** consulta los coches y las plazas disponibles en el servidor
   para facilitar el cambio y la reconexión.
 - **Votación de circuito:** muestra los circuitos disponibles y el estado de la
-  votación; permite proponer un circuito y votar a favor o en contra.
+  votación; permite proponer un circuito y votar a favor o en contra. Cuando hay
+  una votación activa, muestra una ventana flotante en la esquina superior derecha
+  con el circuito, el progreso y los botones de voto. La pestaña Circuito se mantiene.
 - **Cambio local de skin:** permite elegir una skin instalada localmente y aplicarla
   a la vista del propio jugador.
 - **Teletransporte y reaparición:** guarda una ubicación, permite volver a ella o ir

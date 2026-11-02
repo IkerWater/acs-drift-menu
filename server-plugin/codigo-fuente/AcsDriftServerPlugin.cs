@@ -182,7 +182,7 @@ public class AcsDriftServerPlugin : BackgroundService
             _nextAllowedStart = now.AddSeconds(_config.CooldownSeconds);
 
             Broadcast($"{_vote.ProposerName} proposes: {entry.Name}. {_vote.Needed} of {connected} votes in favor are required. " +
-                      $"Vote with /mapyes or /mapno ({_config.VoteDurationSeconds} s).");
+                      $"Vote in the ACS Drift menu or use /mapyes and /mapno ({_config.VoteDurationSeconds} s).");
 
             if (_config.ProposerVotesYes)
                 RegisterVote(client, true);

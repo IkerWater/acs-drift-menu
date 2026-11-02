@@ -1,11 +1,16 @@
 -- Votacion de mapa (servidor: AcsDriftServerPlugin).
--- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
-local CONFIG = import('config')
+-- La lista y el estado se leen por HTTP; las acciones se envian por evento online.
 local core = import('core')
 local net = import('net')
 local I18N = import('i18n')
 
 local M = {}
+
+local actionEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_MapVoteAction'),
+  action = ac.StructItem.uint8(),
+  id = ac.StructItem.uint16(),
+})
 
 -- Estado que lee la UI
 local mapvote = {
@@ -40,10 +45,21 @@ function M.retry()
   pollStatus()
 end
 
--- active = true cuando la pestana de circuito esta visible (decide la UI, no este modulo).
+local function sendAction(action, id)
+  local ok, err = pcall(function()
+    actionEvent({ action = action, id = id or 0 })
+  end)
+  if not ok then
+    core.notify(I18N.get('track.action_error', tostring(err)))
+    ac.log('[ACS Menu] Track vote action failed: ' .. tostring(err))
+    return false
+  end
+  mapvote.pollTimer = 0.4
+  return true
+end
+
 function M.update(dt, active)
-  if not active then return end
-  if mapvote.tracksState == 'idle' then M.loadTracks() end
+  if active and mapvote.tracksState == 'idle' then M.loadTracks() end
   mapvote.pollTimer = mapvote.pollTimer - dt
   if mapvote.pollTimer <= 0 then
     mapvote.pollTimer = 1.5
@@ -52,17 +68,13 @@ function M.update(dt, active)
 end
 
 function M.propose(entry)
-  local command = string.format(CONFIG.commands.mapStart, entry.id)
-  core.sendChatCommand(command, I18N.get('common.sent', command))
-  mapvote.pollTimer = 0.4
+  sendAction(1, entry.id)
 end
 
 function M.castVote(yes)
-  local command = yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo
-  core.sendChatCommand(command, I18N.get('common.sent', command))
+  if not sendAction(yes and 2 or 3) then return end
   mapvote.myVote = yes
   mapvote.myVoteFor = mapvote.status and mapvote.status.proposal and mapvote.status.proposal.id or nil
-  mapvote.pollTimer = 0.4
 end
 
 return M

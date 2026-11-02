@@ -6,6 +6,7 @@ local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
 local menu = import('ui/menu')
+local voteWindow = import('ui/vote_window')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -23,6 +24,6 @@ end
 
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
-  if not core.state.open then return end
-  menu.drawWindow()
+  if core.state.open then menu.drawWindow() end
+  voteWindow.draw()
 end

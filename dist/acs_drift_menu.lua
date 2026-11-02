@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 14:28).
+-- GENERADO EL (2026-11-02 14:37).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -264,13 +264,18 @@ end
 -- ===== modulo: features/mapvote (src/features/mapvote.lua) =====
 __modules['features/mapvote'] = function()
 -- Votacion de mapa (servidor: AcsDriftServerPlugin).
--- La lista de mapas y el estado se leen por HTTP; las acciones van por chat.
-local CONFIG = import('config')
+-- La lista y el estado se leen por HTTP; las acciones se envian por evento online.
 local core = import('core')
 local net = import('net')
 local I18N = import('i18n')
 
 local M = {}
+
+local actionEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_MapVoteAction'),
+  action = ac.StructItem.uint8(),
+  id = ac.StructItem.uint16(),
+})
 
 -- Estado que lee la UI
 local mapvote = {
@@ -305,10 +310,21 @@ function M.retry()
   pollStatus()
 end
 
--- active = true cuando la pestana de circuito esta visible (decide la UI, no este modulo).
+local function sendAction(action, id)
+  local ok, err = pcall(function()
+    actionEvent({ action = action, id = id or 0 })
+  end)
+  if not ok then
+    core.notify(I18N.get('track.action_error', tostring(err)))
+    ac.log('[ACS Menu] Track vote action failed: ' .. tostring(err))
+    return false
+  end
+  mapvote.pollTimer = 0.4
+  return true
+end
+
 function M.update(dt, active)
-  if not active then return end
-  if mapvote.tracksState == 'idle' then M.loadTracks() end
+  if active and mapvote.tracksState == 'idle' then M.loadTracks() end
   mapvote.pollTimer = mapvote.pollTimer - dt
   if mapvote.pollTimer <= 0 then
     mapvote.pollTimer = 1.5
@@ -317,17 +333,13 @@ function M.update(dt, active)
 end
 
 function M.propose(entry)
-  local command = string.format(CONFIG.commands.mapStart, entry.id)
-  core.sendChatCommand(command, I18N.get('common.sent', command))
-  mapvote.pollTimer = 0.4
+  sendAction(1, entry.id)
 end
 
 function M.castVote(yes)
-  local command = yes and CONFIG.commands.mapYes or CONFIG.commands.mapNo
-  core.sendChatCommand(command, I18N.get('common.sent', command))
+  if not sendAction(yes and 2 or 3) then return end
   mapvote.myVote = yes
   mapvote.myVoteFor = mapvote.status and mapvote.status.proposal and mapvote.status.proposal.id or nil
-  mapvote.pollTimer = 0.4
 end
 
 return M
@@ -585,9 +597,11 @@ local strings = {
     ['track.changing'] = 'Track change in progress',
     ['track.restart'] = 'The server restarts in %d s. Rejoin the server.',
     ['track.vote_active'] = 'Vote in progress',
+    ['track.vote_counts'] = 'Yes: %d  |  No: %d  |  %d needed',
     ['track.proposer'] = 'Proposed by: %s',
     ['track.votes'] = 'Yes: %d of %d required  |  Connected: %d',
     ['track.time_left'] = 'Time remaining: %d s',
+    ['track.action_error'] = 'Could not send track vote action: %s',
     ['track.yes'] = 'YES',
     ['track.no'] = 'NO',
     ['track.propose_title'] = 'Propose track change',
@@ -691,9 +705,11 @@ local strings = {
     ['track.changing'] = 'Cambiando de circuito',
     ['track.restart'] = 'El servidor se reinicia en %d s. Vuelve a entrar al servidor.',
     ['track.vote_active'] = 'Votacion en curso',
+    ['track.vote_counts'] = 'A favor: %d  |  En contra: %d  |  Necesarios: %d',
     ['track.proposer'] = 'Propone: %s',
     ['track.votes'] = 'A favor: %d de %d necesarios  |  Conectados: %d',
     ['track.time_left'] = 'Tiempo restante: %d s',
+    ['track.action_error'] = 'No se pudo enviar la accion de votacion: %s',
     ['track.yes'] = 'A FAVOR',
     ['track.no'] = 'EN CONTRA',
     ['track.propose_title'] = 'Proponer cambio de mapa',
@@ -1571,6 +1587,65 @@ end
 return M
 end
 
+-- ===== modulo: ui/vote_window (src/ui/vote_window.lua) =====
+__modules['ui/vote_window'] = function()
+local mv = import('features/mapvote')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C, smallText, sectionTitle, styledButton, drawProgress =
+  T.C, T.smallText, T.sectionTitle, T.styledButton, T.drawProgress
+
+local M = {}
+
+local function screenSize()
+  local ok, info = pcall(ac.getUI)
+  if ok and info and info.windowSize and info.windowSize.x > 0 then
+    return info.windowSize.x, info.windowSize.y
+  end
+  return 1920, 1080
+end
+
+function M.draw()
+  local status = mv.data.status
+  if not status or not status.active or not status.proposal then return end
+
+  local screenWidth = screenSize()
+  local width, height, margin = 370, 190, 16
+  local position = vec2(math.max(margin, screenWidth - width - margin), margin)
+
+  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.Border, C.accent)
+  ui.pushStyleVar(ui.StyleVar.WindowRounding, 12)
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(14, 10))
+  ui.toolWindow('acs_menu/track_vote', position, vec2(width, height), false, true, function()
+    sectionTitle(I18N.get('track.vote_active'), C.accentHi)
+    ui.pushFont(ui.Font.Small)
+    ui.textWrapped(status.proposal.name)
+    ui.popFont()
+    smallText(I18N.get('track.proposer', tostring(status.proposer or '?')))
+    smallText(I18N.get('track.vote_counts', status.yes, status.no, status.needed))
+    smallText(I18N.get('track.time_left', status.secondsLeft))
+    drawProgress(status.yes / math.max(1, status.needed))
+
+    local voted = mv.data.myVoteFor == status.proposal.id
+    local buttonWidth = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('track.yes'), vec2(buttonWidth, 32),
+        voted and mv.data.myVote == true) then
+      mv.castVote(true)
+    end
+    ui.sameLine(0, 6)
+    if styledButton(I18N.get('track.no'), vec2(buttonWidth, 32),
+        voted and mv.data.myVote == false) then
+      mv.castVote(false)
+    end
+  end)
+  ui.popStyleVar(2)
+  ui.popStyleColor(2)
+end
+
+return M
+end
+
 -- ===== punto de entrada (src/main.lua) =====
 __modules['__main'] = function()
 -- Punto de entrada: engancha los callbacks de CSP. Aqui no hay logica propia.
@@ -1581,6 +1656,7 @@ local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
 local menu = import('ui/menu')
+local voteWindow = import('ui/vote_window')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -1598,8 +1674,8 @@ end
 
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
-  if not core.state.open then return end
-  menu.drawWindow()
+  if core.state.open then menu.drawWindow() end
+  voteWindow.draw()
 end
 end
 import('__main')
