@@ -30,7 +30,6 @@ public class AcsDriftServerPlugin : BackgroundService
     }
 
     private const string Tag = "[Mapa]";
-    private const string KickReasonText = "CAMBIO DE CIRCUITO: vuelve a entrar en unos segundos";
 
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
@@ -498,10 +497,9 @@ public class AcsDriftServerPlugin : BackgroundService
         }
         else
         {
+            // Sin KickCar a SessionId 255: hace que el cliente se cierre (ACClient::onMessageTCP).
+            // Los jugadores se desconectan solos al reiniciarse el servidor.
             Broadcast($"Cargando {name}: el servidor se reinicia, vuelve a entrar en unos segundos.");
-            await Task.Delay(1500, token);
-            _entryCarManager.BroadcastPacket(new CSPKickBanMessageOverride { Message = KickReasonText });
-            _entryCarManager.BroadcastPacket(new KickCar { SessionId = 255, Reason = KickReason.Kicked });
         }
 
         await RestartAsync(name, preset, Math.Max(1, _config.TransitionSeconds - 1), token);

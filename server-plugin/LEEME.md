@@ -83,6 +83,8 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   para mostrar) son distintos. No uses `Name` para reiniciar.
 - Cualquier acción de admin que llegue por evento online tiene que comprobar `client.IsAdministrator` en el
   servidor, aunque el menú ya oculte el botón.
+- No enviar `KickCar` con `SessionId = 255` (broadcast): cierra el juego de los clientes. Para desconectar a
+  todos basta con reiniciar el servidor.
 
 ## Cambios
 
@@ -93,6 +95,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Quitado el envío de `KickCar` a `SessionId = 255` y `CSPKickBanMessageOverride` al cambiar de preset:
   el informe de crash muestra errores al buscar ese session ID justo antes del crash nativo del cliente en
   `ACClient::onMessageTCP`. Los clientes se desconectan cuando el servidor se reinicia.
+- Corregido aquí también en el cambio de circuito: cuando no hay reconexión automática (`EnableReconnect: false`
+  o `EnableClientMessages: false`) se hacía el mismo `KickCar` a `SessionId = 255`. Quitado; solo queda el
+  aviso por chat. Ya no queda ningún `KickCar` en el plugin: no lo vuelvas a meter con 255.
 - Probado contra pre45: cambio forzado de `p1` a `p2`, carga `presets/p2/server_cfg.ini`.
 
 ### 2026-11-02 (b): cambio de preset desde el menú admin
