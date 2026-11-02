@@ -19,6 +19,7 @@ local TABS = {
 }
 
 local M = {}
+local dragging = false
 
 -- Solo las pestanas que tocan mostrarse ahora mismo (admin.data.isAdmin puede
 -- cambiar en caliente: se recalcula cada vez, es barato con esta pocas pestanas).
@@ -177,8 +178,28 @@ function M.drawWindow()
   local h = requiredHeight(tabs)
   local sw, sh = screenSize()
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
-  local x = (s.posX / 100) * math.max(0, sw - w)
-  local y = (s.posY / 100) * math.max(0, sh - h)
+  local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
+  local x = (s.posX / 100) * maxX
+  local y = (s.posY / 100) * maxY
+
+  local mouse = ui.mousePos()
+  local overHeader = mouse.x >= x and mouse.x <= x + w
+      and mouse.y >= y + 12 and mouse.y <= y + 82
+  if ui.mouseClicked(ui.MouseButton.Left) and overHeader then
+    dragging = true
+  end
+  if dragging then
+    if ui.mouseDown(ui.MouseButton.Left) then
+      local delta = ui.mouseDelta()
+      x = math.max(0, math.min(maxX, x + delta.x))
+      y = math.max(0, math.min(maxY, y + delta.y))
+      s.posX = maxX > 0 and x / maxX * 100 or 0
+      s.posY = maxY > 0 and y / maxY * 100 or 0
+    else
+      dragging = false
+    end
+  end
+
   ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)

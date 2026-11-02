@@ -7,3 +7,6 @@ Los textos del menu se mantienen en `src/i18n.lua`. Actualmente hay ingles (idio
 predeterminado) y espanol; se puede cambiar en la pestana Ajustes. CSP no expone en su
 API Lua documentada el idioma de la instalacion, por lo que la seleccion es manual y
 dura mientras esta cargado el script.
+
+La ventana se puede mover arrastrando la cabecera; tambien se puede ajustar su posicion
+horizontal y vertical desde Ajustes.
