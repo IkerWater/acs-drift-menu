@@ -8,6 +8,14 @@ local C, smallText, sectionTitle, styledButton, drawProgress =
 local mapvote = mv.data
 
 return function()
+  if mapvote.tracksState == 'error' or mapvote.statusError then
+    sectionTitle(I18N.get('tab.track'), C.accentHi)
+    smallText(I18N.get('plugin.connection_warning'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then mv.retry() end
+    return
+  end
+
   local st = mapvote.status
 
   sectionTitle(I18N.get('track.current'), C.accentHi)
@@ -15,8 +23,6 @@ return function()
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.current.name)
     ui.popFont()
-  elseif mapvote.statusError then
-    smallText(I18N.get('track.connection_error', mapvote.statusError))
   else
     smallText(I18N.get('common.loading'))
   end
@@ -57,11 +63,6 @@ return function()
 
   if mapvote.tracksState == 'loading' then
     smallText(I18N.get('track.loading_list'))
-  elseif mapvote.tracksState == 'error' then
-    smallText(I18N.get('track.load_error'))
-    ui.dummy(vec2(0, 4))
-    if styledButton(I18N.get('common.retry'), vec2(-0.1, 32), true) then mv.loadTracks() end
-    return
   end
 
   ui.setNextItemWidth(ui.availableSpaceX())

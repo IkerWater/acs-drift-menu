@@ -11,6 +11,9 @@ local M = {}
 
 local state = {
   isAdmin = false,
+  pluginConnection = 'checking',
+  statusRequestPending = false,
+  statusRequestAt = 0,
   presets = {},
   presetsState = 'idle',
   presetsError = nil,
@@ -34,12 +37,23 @@ ac.OnlineEvent({
 }, function(sender, message)
   if sender ~= nil then return end -- solo mensajes del propio servidor
   state.isAdmin = message.isAdmin == 1
+  state.pluginConnection = 'available'
+  state.statusRequestPending = false
 end)
 
 local pollTimer = 0
 
 function M.request()
-  requestEvent({ request = 0 })
+  state.statusRequestAt = os.clock()
+  state.statusRequestPending = true
+  local ok, err = pcall(function()
+    requestEvent({ request = 0 })
+  end)
+  if not ok then
+    state.pluginConnection = 'unavailable'
+    state.statusRequestPending = false
+    ac.log('[ACS Menu] Admin status request failed: ' .. tostring(err))
+  end
 end
 
 function M.loadPresets()
@@ -66,6 +80,11 @@ function M.changePreset(id)
   core.notify(I18N.get('admin.preset_sent'))
 end
 
+function M.retry()
+  M.request()
+  if state.isAdmin then M.loadPresets() end
+end
+
 function M.update(dt, active)
   if not core.state.open then
     pollTimer = 0
@@ -78,6 +97,11 @@ function M.update(dt, active)
   if pollTimer <= 0 then
     pollTimer = 5
     M.request()
+  end
+
+  if state.statusRequestPending and os.clock() - state.statusRequestAt >= 3 then
+    state.pluginConnection = 'unavailable'
+    state.statusRequestPending = false
   end
 end
 

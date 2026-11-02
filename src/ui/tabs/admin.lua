@@ -14,6 +14,13 @@ end
 return function()
   local data = admin.data
   sectionTitle(I18N.get('tab.admin'), C.accentHi)
+  if data.pluginConnection == 'unavailable' or data.presetsState == 'error' then
+    smallText(I18N.get('plugin.connection_warning'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then admin.retry() end
+    return
+  end
+
   smallText(I18N.get('admin.description'))
   ui.dummy(vec2(0, 8))
 

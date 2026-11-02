@@ -35,6 +35,11 @@ local function pollStatus()
   end)
 end
 
+function M.retry()
+  M.loadTracks()
+  pollStatus()
+end
+
 -- active = true cuando la pestana de circuito esta visible (decide la UI, no este modulo).
 function M.update(dt, active)
   if not active then return end

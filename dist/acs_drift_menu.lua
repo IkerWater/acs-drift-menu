@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 13:30).
+-- GENERADO EL (2026-11-02 13:55).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-02 13:30'
+local genDate = '2026-11-02 13:55'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -99,6 +99,9 @@ local M = {}
 
 local state = {
   isAdmin = false,
+  pluginConnection = 'checking',
+  statusRequestPending = false,
+  statusRequestAt = 0,
   presets = {},
   presetsState = 'idle',
   presetsError = nil,
@@ -122,12 +125,23 @@ ac.OnlineEvent({
 }, function(sender, message)
   if sender ~= nil then return end -- solo mensajes del propio servidor
   state.isAdmin = message.isAdmin == 1
+  state.pluginConnection = 'available'
+  state.statusRequestPending = false
 end)
 
 local pollTimer = 0
 
 function M.request()
-  requestEvent({ request = 0 })
+  state.statusRequestAt = os.clock()
+  state.statusRequestPending = true
+  local ok, err = pcall(function()
+    requestEvent({ request = 0 })
+  end)
+  if not ok then
+    state.pluginConnection = 'unavailable'
+    state.statusRequestPending = false
+    ac.log('[ACS Menu] Admin status request failed: ' .. tostring(err))
+  end
 end
 
 function M.loadPresets()
@@ -154,6 +168,11 @@ function M.changePreset(id)
   core.notify(I18N.get('admin.preset_sent'))
 end
 
+function M.retry()
+  M.request()
+  if state.isAdmin then M.loadPresets() end
+end
+
 function M.update(dt, active)
   if not core.state.open then
     pollTimer = 0
@@ -166,6 +185,11 @@ function M.update(dt, active)
   if pollTimer <= 0 then
     pollTimer = 5
     M.request()
+  end
+
+  if state.statusRequestPending and os.clock() - state.statusRequestAt >= 3 then
+    state.pluginConnection = 'unavailable'
+    state.statusRequestPending = false
   end
 end
 
@@ -275,6 +299,11 @@ local function pollStatus()
     mapvote.status, mapvote.statusError = data, err
     if data and not data.active then mapvote.myVote, mapvote.myVoteFor = nil, nil end
   end)
+end
+
+function M.retry()
+  M.loadTracks()
+  pollStatus()
 end
 
 -- active = true cuando la pestana de circuito esta visible (decide la UI, no este modulo).
@@ -521,6 +550,8 @@ local strings = {
     ['car.loading'] = 'Loading available cars...',
     ['car.server_error'] = 'Could not reach the server.',
     ['common.retry'] = 'RETRY',
+    ['plugin.connection_warning'] = 'Cannot connect to the ACS Drift server plugin. It may not be installed or enabled on this server.',
+    ['plugin.retry'] = 'RETRY CONNECTION',
     ['common.unavailable'] = 'unavailable',
     ['common.sent'] = 'Sent: %s',
     ['car.empty'] = 'The server has no cars configured in its entry list.',
@@ -625,6 +656,8 @@ local strings = {
     ['car.loading'] = 'Consultando coches disponibles...',
     ['car.server_error'] = 'No se pudo consultar el servidor.',
     ['common.retry'] = 'REINTENTAR',
+    ['plugin.connection_warning'] = 'No se puede conectar con el plugin de ACS Drift del servidor. Puede que no esté instalado o habilitado.',
+    ['plugin.retry'] = 'REINTENTAR CONEXIÓN',
     ['common.unavailable'] = 'no disponible',
     ['common.sent'] = 'Enviado: %s',
     ['car.empty'] = 'El servidor no tiene coches configurados en el entry list.',
@@ -782,7 +815,9 @@ local TABS = {
   { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
-    visible = function() return admin.data.isAdmin end },
+    visible = function()
+      return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
+    end },
 }
 
 local M = {}
@@ -997,6 +1032,13 @@ end
 return function()
   local data = admin.data
   sectionTitle(I18N.get('tab.admin'), C.accentHi)
+  if data.pluginConnection == 'unavailable' or data.presetsState == 'error' then
+    smallText(I18N.get('plugin.connection_warning'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then admin.retry() end
+    return
+  end
+
   smallText(I18N.get('admin.description'))
   ui.dummy(vec2(0, 8))
 
@@ -1061,13 +1103,13 @@ return function()
 
   sectionTitle(I18N.get('car.title'), C.accentHi)
 
-  if cars.status == 'loading' and #cars.list == 0 then
-    smallText(I18N.get('car.loading'))
-    return
-  elseif cars.status == 'error' and #cars.list == 0 then
-    smallText(I18N.get('car.server_error'))
+  if cars.status == 'error' then
+    smallText(I18N.get('plugin.connection_warning'))
     ui.dummy(vec2(0, 4))
-    if styledButton(I18N.get('common.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
+    return
+  elseif cars.status == 'loading' and #cars.list == 0 then
+    smallText(I18N.get('car.loading'))
     return
   elseif #cars.list == 0 then
     smallText(I18N.get('car.empty'))
@@ -1325,6 +1367,14 @@ local C, smallText, sectionTitle, styledButton, drawProgress =
 local mapvote = mv.data
 
 return function()
+  if mapvote.tracksState == 'error' or mapvote.statusError then
+    sectionTitle(I18N.get('tab.track'), C.accentHi)
+    smallText(I18N.get('plugin.connection_warning'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then mv.retry() end
+    return
+  end
+
   local st = mapvote.status
 
   sectionTitle(I18N.get('track.current'), C.accentHi)
@@ -1332,8 +1382,6 @@ return function()
     ui.pushFont(ui.Font.Small)
     ui.textWrapped(st.current.name)
     ui.popFont()
-  elseif mapvote.statusError then
-    smallText(I18N.get('track.connection_error', mapvote.statusError))
   else
     smallText(I18N.get('common.loading'))
   end
@@ -1374,11 +1422,6 @@ return function()
 
   if mapvote.tracksState == 'loading' then
     smallText(I18N.get('track.loading_list'))
-  elseif mapvote.tracksState == 'error' then
-    smallText(I18N.get('track.load_error'))
-    ui.dummy(vec2(0, 4))
-    if styledButton(I18N.get('common.retry'), vec2(-0.1, 32), true) then mv.loadTracks() end
-    return
   end
 
   ui.setNextItemWidth(ui.availableSpaceX())

@@ -12,13 +12,13 @@ return function()
 
   sectionTitle(I18N.get('car.title'), C.accentHi)
 
-  if cars.status == 'loading' and #cars.list == 0 then
-    smallText(I18N.get('car.loading'))
-    return
-  elseif cars.status == 'error' and #cars.list == 0 then
-    smallText(I18N.get('car.server_error'))
+  if cars.status == 'error' then
+    smallText(I18N.get('plugin.connection_warning'))
     ui.dummy(vec2(0, 4))
-    if styledButton(I18N.get('common.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
+    return
+  elseif cars.status == 'loading' and #cars.list == 0 then
+    smallText(I18N.get('car.loading'))
     return
   elseif #cars.list == 0 then
     smallText(I18N.get('car.empty'))
