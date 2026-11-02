@@ -20,6 +20,7 @@ local genDate = '2026-11-02 13:55'
 __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
+  version = 'v0.5',
   toggleKey = ui.KeyIndex.M,
 
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
@@ -801,6 +802,7 @@ __modules['ui/menu'] = function()
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
 -- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS.
 local core = import('core')
+local CONFIG = import('config')
 local admin = import('features/admin')
 local T = import('ui/theme')
 local I18N = import('i18n')
@@ -902,8 +904,25 @@ end
 
 local function header()
   ui.dummy(vec2(0, 2))
-  ui.dwriteTextAligned('ACS DRIFT', 35, ui.Alignment.Center, ui.Alignment.Center,
-      vec2(ui.availableSpaceX(), 35), false, C.text)
+  ui.pushFont(ui.Font.Title)
+  local titleWidth = T.textWidth('ACS DRIFT')
+  ui.popFont()
+  ui.pushFont(ui.Font.Small)
+  local versionWidth = T.textWidth(CONFIG.version)
+  ui.popFont()
+  local titleGroupWidth = titleWidth + versionWidth + 6
+  local leftSpace = math.max(0, (ui.availableSpaceX() - titleGroupWidth) / 2)
+
+  ui.indent(leftSpace)
+  ui.pushFont(ui.Font.Title)
+  ui.textColored('ACS DRIFT', C.text)
+  ui.popFont()
+  ui.sameLine(0, 6)
+  ui.pushFont(ui.Font.Small)
+  ui.textColored(CONFIG.version, C.accentHi)
+  ui.popFont()
+  ui.unindent(leftSpace)
+
   ui.dwriteTextAligned('by Water', 20, ui.Alignment.End, ui.Alignment.Center,
       vec2(ui.availableSpaceX(), 25), false, C.accentHi)
   ui.dummy(vec2(0, 6))
