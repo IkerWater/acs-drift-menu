@@ -85,7 +85,10 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   servidor, aunque el menú ya oculte el botón.
 - No enviar `KickCar` con `SessionId = 255` (broadcast): puede cerrar el juego del cliente. Para expulsar
   jugadores al cambiar de preset, enviar `KickCar` con el SessionId individual y cerrar las conexiones después
-  de que el aviso haya permanecido visible.
+  de que el aviso haya permanecido visible, con `EntryCarManager.KickAsync` (`ACTcpClient.DisconnectAsync` no es
+  público en pre45).
+- Envuelve en `try/catch` cualquier bucle que recorra jugadores antes de un reinicio: si una excepción lo corta,
+  el reinicio no llega a hacerse.
 
 ## Cambios
 
@@ -96,8 +99,16 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Evita el `SessionId = 255` global que precedió al crash y permite volver desde Content Manager tras el aviso.
 - Textos del juego (menú `lua/mapvote.lua`, mensajes del chat) y del log pasados al inglés. El menú del chat
   de CSP se llama ahora "Track vote". Los comandos no cambian.
-- La desconexión tras el aviso usa paquetes con SessionId individual y `ACTcpClient.DisconnectAsync()`;
-  queda por probar en el juego con clientes conectados.
+- La desconexión tras el aviso usa paquetes con SessionId individual; queda por probar en el juego con
+  clientes conectados.
+- Revisado aquí:
+  - **No compilaba**: `ACTcpClient.DisconnectAsync()` no es público en pre45 (error CS1061). Cambiado por
+    `EntryCarManager.KickAsync(client, KickReason.Kicked, "preset change", PresetKickReasonText)`, que es lo que
+    usa el `/kick` de AssettoServer y cierra la conexión. Va después de los 2 s del aviso, como querías.
+  - `KickCar` se envía con `client.SendPacket`, solo a ese jugador y con su propio SessionId.
+  - Añadido un `try/catch` por jugador al avisar y al desconectar. Si un jugador se iba justo en ese momento,
+    la excepción cortaba el bucle, se cancelaba el reinicio y el servidor se quedaba con el preset anterior.
+  - Probado el cambio forzado de `p1` a `p2` sin jugadores conectados.
 
 ### 2026-11-02 (c): cambio de preset sin reconexión automática
 - Del colega: al cambiar de preset ya no se intenta la reconexión automática (el preset nuevo puede tener otros

@@ -495,15 +495,25 @@ public class AcsDriftServerPlugin : BackgroundService
             .Select(car => car.Client)
             .OfType<ACTcpClient>()
             .ToArray();
+        // Cada jugador por separado y sin dejar que uno que ya se ha ido corte el bucle:
+        // una excepción aquí cancelaría el reinicio y el servidor se quedaría con el preset viejo.
         foreach (var client in clients)
         {
-            client.SendPacket(new CSPKickBanMessageOverride { Message = PresetKickReasonText });
-            client.SendPacket(new KickCar { SessionId = client.SessionId, Reason = KickReason.Kicked });
+            try
+            {
+                client.SendPacket(new CSPKickBanMessageOverride { Message = PresetKickReasonText });
+                client.SendPacket(new KickCar { SessionId = client.SessionId, Reason = KickReason.Kicked });
+            }
+            catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not notify {Name}", client.Name); }
         }
 
         await Task.Delay(TimeSpan.FromSeconds(PresetKickDisplaySeconds), token);
         foreach (var client in clients)
-            await client.DisconnectAsync();
+        {
+            // ACTcpClient.DisconnectAsync no es público en pre45: KickAsync es la vía pública que cierra la conexión
+            try { await _entryCarManager.KickAsync(client, KickReason.Kicked, "preset change", PresetKickReasonText); }
+            catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not disconnect {Name}", client.Name); }
+        }
 
         await RestartAsync(preset.Name, preset.Folder, 0, token);
     }
