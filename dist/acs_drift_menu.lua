@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-01 23:10).
+-- GENERADO EL (2026-11-02 12:36).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -14,7 +14,7 @@ local function import(name)
   return cached
 end
 
-local genDate = '2026-11-01 23:10'
+local genDate = '2026-11-02 12:36'
 
 -- ===== modulo: config (src/config.lua) =====
 __modules['config'] = function()
@@ -92,11 +92,24 @@ __modules['features/admin'] = function()
 -- El estado puede cambiar en caliente (alguien escribe /admin <contraseña> en el
 -- chat a mitad de partida), por eso se vuelve a pedir cada pocos segundos.
 local core = import('core')
+local net = import('net')
+local I18N = import('i18n')
 
 local M = {}
 
-local state = { isAdmin = false }
+local state = {
+  isAdmin = false,
+  presets = {},
+  presetsState = 'idle',
+  presetsError = nil,
+  selectedPreset = nil,
+}
 M.data = state
+
+local presetChangeEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_AdminPresetChange'),
+  presetId = ac.StructItem.uint16(),
+})
 
 local requestEvent = ac.OnlineEvent({
   ac.StructItem.key('ACP_AdminStatusRequest'),
@@ -117,11 +130,37 @@ function M.request()
   requestEvent({ request = 0 })
 end
 
-function M.update(dt)
+function M.loadPresets()
+  state.presetsState = 'loading'
+  net.getJson('/admin/presets', function(data, err)
+    if data and type(data.presets) == 'table' then
+      state.presets, state.presetsState, state.presetsError = data.presets, 'ok', nil
+    else
+      state.presetsState, state.presetsError = 'error', tostring(err or 'respuesta invalida')
+      core.notify(I18N.get('admin.presets_error', state.presetsError))
+    end
+  end)
+end
+
+function M.changePreset(id)
+  local ok, err = pcall(function()
+    presetChangeEvent({ presetId = id })
+  end)
+  if not ok then
+    core.notify(I18N.get('admin.preset_send_error', tostring(err)))
+    return
+  end
+  state.selectedPreset = nil
+  core.notify(I18N.get('admin.preset_sent'))
+end
+
+function M.update(dt, active)
   if not core.state.open then
     pollTimer = 0
     return
   end
+
+  if active and state.presetsState == 'idle' then M.loadPresets() end
 
   pollTimer = pollTimer - dt
   if pollTimer <= 0 then
@@ -549,6 +588,16 @@ local strings = {
     ['admin.cancel'] = 'Cancel current vote / track change',
     ['admin.reload'] = 'Reload track list',
     ['admin.send_error'] = 'Could not send: %s',
+    ['admin.presets'] = 'Server presets',
+    ['admin.presets_description'] = 'Choose a preset to switch the server car lineup and restart.',
+    ['admin.presets_loading'] = 'Loading server presets...',
+    ['admin.presets_load_error'] = 'Could not load presets: %s',
+    ['admin.presets_error'] = 'Preset list: %s',
+    ['admin.presets_empty'] = 'No server presets were found.',
+    ['admin.preset_current'] = 'current',
+    ['admin.preset_apply'] = 'CHANGE PRESET & RESTART',
+    ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
+    ['admin.preset_send_error'] = 'Could not request preset change: %s',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -643,6 +692,16 @@ local strings = {
     ['admin.cancel'] = 'Cancelar votacion / cambio en curso',
     ['admin.reload'] = 'Recargar lista de circuitos',
     ['admin.send_error'] = 'No se pudo enviar: %s',
+    ['admin.presets'] = 'Presets del servidor',
+    ['admin.presets_description'] = 'Elige un preset para cambiar los coches del servidor y reiniciarlo.',
+    ['admin.presets_loading'] = 'Cargando presets del servidor...',
+    ['admin.presets_load_error'] = 'No se pudieron cargar los presets: %s',
+    ['admin.presets_error'] = 'Lista de presets: %s',
+    ['admin.presets_empty'] = 'No se encontraron presets en el servidor.',
+    ['admin.preset_current'] = 'actual',
+    ['admin.preset_apply'] = 'CAMBIAR PRESET Y REINICIAR',
+    ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
+    ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -722,7 +781,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
   { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 260, draw = import('ui/tabs/admin'),
+  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
     visible = function() return admin.data.isAdmin end },
 }
 
@@ -902,10 +961,10 @@ end
 -- ===== modulo: ui/tabs/admin (src/ui/tabs/admin.lua) =====
 __modules['ui/tabs/admin'] = function()
 -- Pestana: Admin (solo visible si esta conexion entro con /admin <contraseña>).
--- De momento son accesos directos a comandos de chat /map* ya existentes en el
--- servidor (AcsDriftServerPlugin, marcados [RequireAdmin]); se puede ampliar aqui.
+-- Incluye acciones de chat y cambio directo de preset validado por el servidor.
 local T = import('ui/theme')
 local I18N = import('i18n')
+local admin = import('features/admin')
 local C, sectionTitle, styledButton, smallText = T.C, T.sectionTitle, T.styledButton, T.smallText
 
 -- [VERIFICAR] nombre de la funcion de CSP para enviar un mensaje de chat local (se asume ac.sendChatMessage).
@@ -915,6 +974,7 @@ local function sendChat(cmd)
 end
 
 return function()
+  local data = admin.data
   sectionTitle(I18N.get('tab.admin'), C.accentHi)
   smallText(I18N.get('admin.description'))
   ui.dummy(vec2(0, 8))
@@ -924,6 +984,42 @@ return function()
   end
   if styledButton(I18N.get('admin.reload'), vec2(-0.1, 32)) then
     sendChat('/mapreload')
+  end
+
+  sectionTitle(I18N.get('admin.presets'), C.accentHi)
+  smallText(I18N.get('admin.presets_description'))
+  ui.dummy(vec2(0, 4))
+
+  if data.presetsState == 'loading' then
+    smallText(I18N.get('admin.presets_loading'))
+  elseif data.presetsState == 'error' then
+    smallText(I18N.get('admin.presets_load_error', data.presetsError or ''))
+    if styledButton(I18N.get('common.retry'), vec2(-0.1, 30), true) then admin.loadPresets() end
+  elseif #data.presets == 0 then
+    smallText(I18N.get('admin.presets_empty'))
+  else
+    ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+    ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+    ui.childWindow('acs_admin_presets', vec2(-0.1, 190), false, function()
+      for _, preset in ipairs(data.presets) do
+        local label = preset.name
+        if preset.current then
+          label = label .. ' (' .. I18N.get('admin.preset_current') .. ')'
+        end
+        if styledButton(label .. '##preset_' .. preset.id, vec2(-0.1, 30),
+            data.selectedPreset == preset.id, preset.current) then
+          data.selectedPreset = preset.id
+        end
+      end
+    end)
+    ui.popStyleVar(1)
+    ui.popStyleColor(1)
+
+    ui.dummy(vec2(0, 6))
+    if styledButton(I18N.get('admin.preset_apply'), vec2(-0.1, 36), true,
+        data.selectedPreset == nil) then
+      admin.changePreset(data.selectedPreset)
+    end
   end
 end
 end
@@ -1426,7 +1522,7 @@ function script.update(dt)
   teleport.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
-  admin.update(dt)
+  admin.update(dt, core.state.open and core.state.tab == 'admin')
 end
 
 function script.drawUI(dt)
