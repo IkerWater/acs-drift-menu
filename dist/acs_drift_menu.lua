@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 15:47).
+-- GENERADO EL (2026-11-03 13:15).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -43,22 +43,69 @@ __modules['core'] = function()
 -- Estado compartido y utilidades basicas. No depende de ningun otro modulo.
 local M = {}
 
+local storedSettings = ac.storage({
+  language = 'en',
+  accentIndex = 1,
+  bgAlpha = 0.15,
+  closeOnGas = false,
+  posX = 0.5,
+  posY = 0.5,
+}, 'acsDriftMenu.')
+
+local function normalizedPosition(value)
+  if type(value) ~= 'number' or value ~= value
+      or value == math.huge or value == -math.huge then
+    return 0.5
+  end
+  return math.max(0, math.min(1, value))
+end
+
+local function normalizedAlpha(value)
+  if type(value) ~= 'number' or value ~= value
+      or value == math.huge or value == -math.huge then
+    return 0.15
+  end
+  return math.max(0.01, math.min(1, value))
+end
+
+local language = storedSettings.language
+if language ~= 'en' and language ~= 'es' then language = 'en' end
+
+local accentIndex = storedSettings.accentIndex
+if type(accentIndex) ~= 'number' or accentIndex ~= accentIndex then accentIndex = 1 end
+accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
+
+local closeOnGas = storedSettings.closeOnGas
+if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
+
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
   savedPoint = nil,
-  -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
+  -- Solo idioma, acento, cierre al acelerar y posicion se guardan en CSP.
   settings = {
-    language    = 'en', -- en | es; CSP Lua API does not expose a documented game-language getter.
-    accentIndex = 1,   -- indice en T.ACCENTS
-    bgAlpha     = 0.15,
-    closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
-    posX        = 0.5,  -- fraccion del espacio libre horizontal (0 = izquierda, 1 = derecha)
-    posY        = 0.5,  -- fraccion del espacio libre vertical (0 = arriba, 1 = abajo)
+    language    = language, -- en | es; CSP Lua API does not expose a documented game-language getter.
+    accentIndex = accentIndex, -- indice en T.ACCENTS
+    bgAlpha     = normalizedAlpha(storedSettings.bgAlpha),
+    closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
+    posX        = normalizedPosition(storedSettings.posX),
+    posY        = normalizedPosition(storedSettings.posY),
   },
 }
+
+function M.persistSettings()
+  local settings = M.state.settings
+  storedSettings.language = settings.language
+  storedSettings.accentIndex = settings.accentIndex
+  storedSettings.bgAlpha = settings.bgAlpha
+  storedSettings.closeOnGas = settings.closeOnGas
+  storedSettings.posX = settings.posX
+  storedSettings.posY = settings.posY
+end
+
+M.persistSettings()
 
 function M.notify(text)
   M.state.message, M.state.messageTime = text, os.clock()
@@ -822,6 +869,7 @@ local T = import('ui/theme')
 local I18N = import('i18n')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
+T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
@@ -1020,6 +1068,7 @@ function M.drawWindow()
       y = math.max(0, math.min(maxY, y + delta.y))
       s.posX = maxX > 0 and x / maxX or 0
       s.posY = maxY > 0 and y / maxY or 0
+      core.persistSettings()
     else
       dragging = false
     end
@@ -1178,7 +1227,7 @@ end
 -- ===== modulo: ui/tabs/settings (src/ui/tabs/settings.lua) =====
 __modules['ui/tabs/settings'] = function()
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Los cambios son inmediatos y duran la sesion (no se persisten en disco).
+-- Idioma, acento, transparencia, cierre al acelerar y posicion se persisten en el cliente.
 local core   = import('core')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
@@ -1218,10 +1267,12 @@ return function()
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
+    core.persistSettings()
   end
   ui.sameLine(0, 6)
   if T.styledButton('Español', vec2(languageWidth, 32), s.language == 'es') then
     s.language = 'es'
+    core.persistSettings()
   end
 
   -- ── Color de acento ──────────────────────────────────────────────────────
@@ -1235,6 +1286,7 @@ return function()
     if swatchBtn('ac'..i, I18N.get(a.name), a.c, a.hi, s.accentIndex == i, aw, 32) then
       s.accentIndex = i
       T.applyAccent(i)
+      core.persistSettings()
     end
   end
 
@@ -1244,6 +1296,7 @@ return function()
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
+    core.persistSettings()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
@@ -1252,8 +1305,16 @@ return function()
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
   local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX * 100 then s.posX = newX / 100 end
-  if newY ~= s.posY * 100 then s.posY = newY / 100 end
+  local positionChanged = false
+  if newX ~= s.posX * 100 then
+    s.posX = newX / 100
+    positionChanged = true
+  end
+  if newY ~= s.posY * 100 then
+    s.posY = newY / 100
+    positionChanged = true
+  end
+  if positionChanged then core.persistSettings() end
 
     -- ── Comportamiento ───────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
@@ -1263,6 +1324,7 @@ return function()
   ui.pushStyleColor(ui.StyleColor.Text,           C.text)
   if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
     s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
   end
   ui.popStyleColor(4)
 end

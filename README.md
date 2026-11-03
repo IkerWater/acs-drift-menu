@@ -22,6 +22,9 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
   solicitar un cambio directo, sin votación.
 - **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, centrada
   por defecto, tema oscuro e idioma seleccionable entre inglés y español.
+  El idioma, el color de acento, la transparencia, la posición y la opción de
+  cerrar al acelerar se guardan localmente en CSP y se restauran al cargar el
+  menú; no se sincronizan entre equipos ni se guardan en el servidor.
 
 ## Funciones del plugin de servidor
 

@@ -7,6 +7,7 @@ local T = import('ui/theme')
 local I18N = import('i18n')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
+T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
@@ -205,6 +206,7 @@ function M.drawWindow()
       y = math.max(0, math.min(maxY, y + delta.y))
       s.posX = maxX > 0 and x / maxX or 0
       s.posY = maxY > 0 and y / maxY or 0
+      core.persistSettings()
     else
       dragging = false
     end

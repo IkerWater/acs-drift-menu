@@ -1,5 +1,5 @@
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Los cambios son inmediatos y duran la sesion (no se persisten en disco).
+-- Idioma, acento, transparencia, cierre al acelerar y posicion se persisten en el cliente.
 local core   = import('core')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
@@ -39,10 +39,12 @@ return function()
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
+    core.persistSettings()
   end
   ui.sameLine(0, 6)
   if T.styledButton('Español', vec2(languageWidth, 32), s.language == 'es') then
     s.language = 'es'
+    core.persistSettings()
   end
 
   -- ── Color de acento ──────────────────────────────────────────────────────
@@ -56,6 +58,7 @@ return function()
     if swatchBtn('ac'..i, I18N.get(a.name), a.c, a.hi, s.accentIndex == i, aw, 32) then
       s.accentIndex = i
       T.applyAccent(i)
+      core.persistSettings()
     end
   end
 
@@ -65,6 +68,7 @@ return function()
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
+    core.persistSettings()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
@@ -73,8 +77,16 @@ return function()
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
   local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX * 100 then s.posX = newX / 100 end
-  if newY ~= s.posY * 100 then s.posY = newY / 100 end
+  local positionChanged = false
+  if newX ~= s.posX * 100 then
+    s.posX = newX / 100
+    positionChanged = true
+  end
+  if newY ~= s.posY * 100 then
+    s.posY = newY / 100
+    positionChanged = true
+  end
+  if positionChanged then core.persistSettings() end
 
     -- ── Comportamiento ───────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
@@ -84,6 +96,7 @@ return function()
   ui.pushStyleColor(ui.StyleColor.Text,           C.text)
   if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
     s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
   end
   ui.popStyleColor(4)
 end
