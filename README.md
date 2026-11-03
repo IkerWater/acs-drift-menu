@@ -13,6 +13,8 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
   votación; permite proponer un circuito y votar a favor o en contra. Cuando hay
   una votación activa, muestra una ventana flotante en la esquina superior derecha
   con el circuito, el progreso y los botones de voto. La pestaña Circuito se mantiene.
+- **Layouts de drift:** permite consultar los archivos de DriftZonesEditor publicados
+  por el servidor para el circuito actual y descargarlos a la carpeta local de la app.
 - **Cambio local de skin:** permite elegir una skin instalada localmente y aplicarla
   a la vista del propio jugador.
 - **Teletransporte y reaparición:** guarda una ubicación, permite volver a ella o ir
@@ -31,6 +33,10 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
 - **Información en tiempo real:** proporciona al menú la lista de coches con plazas
   libres, los circuitos disponibles, el estado de la votación y los presets
   configurados en el servidor.
+- **Layouts de DriftZonesEditor:** sirve archivos Lua de `layouts/<id del circuito>/`
+  desde la carpeta del plugin. Los archivos se descargan en
+  `assettocorsa/apps/lua/DriftZonesEditor/tracks`; después, el jugador los carga
+  manualmente desde DriftZonesEditor.
 - **Votaciones de circuito:** gestiona propuestas y votos, informa del resultado y
   aplica los cambios aprobados. Puede coordinar la transición y la reconexión de los
   jugadores según la configuración del servidor. Cambiar de circuito no modifica la
@@ -50,6 +56,8 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
 ## Notas
 
 - El cambio de skin es local: no modifica la skin de los demás jugadores.
+- Los layouts son archivos Lua del servidor y DriftZonesEditor los ejecuta cuando
+  el jugador los carga. Descarga layouts únicamente de servidores de confianza.
 - El cambio de circuito y el cambio de preset son acciones distintas: el primero se
   integra con el sistema de votación y conserva la lista de coches; el cambio de
   preset lo inicia directamente un administrador y es la función prevista para

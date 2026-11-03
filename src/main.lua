@@ -5,6 +5,7 @@ local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
+local layouts = import('features/layouts')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
 
@@ -20,6 +21,7 @@ function script.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
+  layouts.update(dt, core.state.open and core.state.tab == 'layouts')
 end
 
 function script.drawUI(dt)

@@ -3,7 +3,7 @@
 Plugin de servidor para ACS Drift (antes MapVotePlugin). Da al menú CSP de ACS Drift los coches con plazas
 libres, el estado de administrador y los presets disponibles. Permite votar circuitos o que un administrador
 cambie directamente el preset activo; AssettoServer se reinicia por dentro. La reconexión automática solo se
-usa al cambiar de circuito.
+usa al cambiar de circuito. También publica los layouts de DriftZonesEditor que el servidor haya instalado.
 
 ## Instalar (sustituye a MapVotePlugin)
 1. Para el servidor.
@@ -15,6 +15,11 @@ usa al cambiar de circuito.
    `MapVotePlugin` y pone `AcsDriftServerPlugin` en `EnablePlugins` de cfg/ y de todos los presets.
    (A mano: cambia `- MapVotePlugin` por `- AcsDriftServerPlugin` en cada `extra_cfg.yml`.)
 5. Arranca. La configuración sigue en `cfg/plugin_map_vote_cfg.yml` (el nombre del archivo no cambia).
+6. Para publicar layouts de DriftZonesEditor, crea
+   `plugins/AcsDriftServerPlugin/layouts/<id-del-circuito>/` y coloca ahí los archivos `.lua`.
+   Ejemplo: `plugins/AcsDriftServerPlugin/layouts/naparrak/NAPARRAK LAYOUT 1 LWDC.lua`.
+   El ID es el nombre de la carpeta del circuito en `content/tracks/`. El plugin crea la carpeta
+   `layouts` al recibir la primera consulta; los archivos pueden añadirse o reemplazarse en caliente.
 
 Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 
@@ -37,6 +42,8 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - `GET /admin/presets`: presets disponibles (`id`, `name` para mostrar, `folder`, `current`).
 - `GET /cars/list`: coches del entry list con plazas libres ahora (`[{"id","name","free","total"}]`);
   el tráfico IA no cuenta como plaza libre.
+- `GET /layouts/{track}`: archivos Lua publicados para el ID del circuito (`{"track","layouts":[{"name","size"}]}`).
+- `GET /layouts/{track}/{fileName}`: descarga el archivo Lua de DriftZonesEditor (máximo 5 MiB).
 
 ## Eventos online (para menús Lua)
 - `ACP_MapVoteAction` (cliente → servidor): `action` 1 proponer, 2 a favor, 3 en contra; `id` del circuito.
@@ -54,6 +61,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   (cargado por la votación entre presets), copia antes su server_cfg.ini y su entry_list.ini a cfg/.
   Con `ApplyToAllPresets: true` cambia el circuito también en todos los presets.
 - El circuito debe estar instalado en el servidor (content/tracks) y en el juego de cada jugador.
+- Los layouts publicados se descargan en `assettocorsa/apps/lua/DriftZonesEditor/tracks`; el jugador
+  debe cargarlos desde DriftZonesEditor. Se sirven como archivos, no se ejecutan en el menú ACS Drift.
+  DriftZonesEditor sí ejecuta el Lua al cargarlo, así que publica únicamente archivos de confianza.
 - Si el circuito no tiene ubicación en data_track_params.ini, activa "No pedir ubicación" en AC Panel.
 - `codigo-fuente/` es solo de referencia; el servidor usa `plugins/AcsDriftServerPlugin/`.
 

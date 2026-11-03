@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-03 13:15).
+-- GENERADO EL (2026-11-03 13:38).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -308,6 +308,110 @@ end
 return M
 end
 
+-- ===== modulo: features/layouts (src/features/layouts.lua) =====
+__modules['features/layouts'] = function()
+-- Descarga de layouts de DriftZonesEditor publicados por el servidor.
+local core = import('core')
+local mapvote = import('features/mapvote')
+local net = import('net')
+local I18N = import('i18n')
+
+local M = {}
+local state = {
+  track = nil,
+  layouts = {},
+  status = 'idle', -- idle | loading | ok | error
+  selected = nil,
+  downloading = false,
+  requestId = 0,
+  downloadId = 0,
+}
+M.data = state
+
+local function encodePathSegment(value)
+  return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
+    return string.format('%%%02X', string.byte(char))
+  end))
+end
+
+local function validFileName(fileName)
+  return type(fileName) == 'string'
+      and fileName ~= ''
+      and fileName ~= '.'
+      and fileName ~= '..'
+      and not fileName:find('[/\\:]')
+      and fileName:lower():match('%.lua$') ~= nil
+end
+
+function M.refresh(track)
+  state.requestId = state.requestId + 1
+  state.downloadId = state.downloadId + 1
+  state.downloading = false
+  local requestId = state.requestId
+  state.track = track
+  state.layouts = {}
+  state.selected = nil
+  state.status = track and 'loading' or 'idle'
+  if not track then return end
+
+  net.getJson('/layouts/' .. encodePathSegment(track), function(data, err)
+    if requestId ~= state.requestId then return end
+    if data and type(data.layouts) == 'table' then
+      state.layouts, state.status = data.layouts, 'ok'
+    else
+      state.status = 'error'
+      core.notify(I18N.get('layouts.load_error', tostring(err or 'respuesta invalida')))
+    end
+  end)
+end
+
+function M.update(_, active)
+  if not active then return end
+  local status = mapvote.data.status
+  local track = status and status.current and status.current.track or nil
+  if track ~= state.track then M.refresh(track) end
+end
+
+function M.download(fileName)
+  if not validFileName(fileName) or state.downloading then return end
+  local available = false
+  for _, layout in ipairs(state.layouts) do
+    if layout.name == fileName then available = true break end
+  end
+  if not available or not state.track then return end
+
+  state.downloading = true
+  state.downloadId = state.downloadId + 1
+  local downloadId = state.downloadId
+  local track = state.track
+  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
+  net.getText(path, function(content, err)
+    if downloadId ~= state.downloadId then return end
+    if not content then
+      state.downloading = false
+      core.notify(I18N.get('layouts.download_error', tostring(err)))
+      return
+    end
+
+    local ok, saveError = pcall(function()
+      local directory = ac.getFolder(ac.FolderID.Root)
+          .. '/apps/lua/DriftZonesEditor/tracks'
+      io.createDir(directory)
+      if not io.dirExists(directory) then error('no se pudo crear la carpeta de DriftZonesEditor') end
+      io.save(directory .. '/' .. fileName, content)
+    end)
+    state.downloading = false
+    if ok then
+      core.notify(I18N.get('layouts.downloaded', fileName))
+    else
+      core.notify(I18N.get('layouts.download_error', tostring(saveError)))
+    end
+  end)
+end
+
+return M
+end
+
 -- ===== modulo: features/mapvote (src/features/mapvote.lua) =====
 __modules['features/mapvote'] = function()
 -- Votacion de mapa (servidor: AcsDriftServerPlugin).
@@ -600,6 +704,7 @@ local strings = {
     ['tab.car'] = 'Car',
     ['tab.skin'] = 'Skin',
     ['tab.track'] = 'Track',
+    ['tab.layouts'] = 'Layouts',
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Settings',
     ['tab.admin'] = 'Admin',
@@ -662,6 +767,17 @@ local strings = {
     ['track.already_current'] = 'You are already on this track.',
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
+    ['layouts.title'] = 'Drift layouts: %s',
+    ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
+    ['layouts.loading'] = 'Loading layouts for this track...',
+    ['layouts.load_error'] = 'Could not load layouts: %s',
+    ['layouts.load_error_short'] = 'Could not load the layout list.',
+    ['layouts.empty'] = 'No layouts are available for this track.',
+    ['layouts.download'] = 'DOWNLOAD LAYOUT',
+    ['layouts.downloading'] = 'Downloading layout...',
+    ['layouts.downloaded'] = 'Downloaded %s to DriftZonesEditor tracks.',
+    ['layouts.download_error'] = 'Could not download layout: %s',
+    ['layouts.reload'] = 'Reload list',
     ['teleport.title'] = 'Respawn / TP',
     ['teleport.save'] = 'Save current point',
     ['teleport.return'] = 'Return to saved point',
@@ -708,6 +824,7 @@ local strings = {
     ['tab.car'] = 'Coche',
     ['tab.skin'] = 'Skin',
     ['tab.track'] = 'Circuito',
+    ['tab.layouts'] = 'Layouts',
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Ajustes',
     ['tab.admin'] = 'Admin',
@@ -770,6 +887,17 @@ local strings = {
     ['track.already_current'] = 'Ya estas en ese mapa.',
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
+    ['layouts.title'] = 'Layouts de drift: %s',
+    ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
+    ['layouts.loading'] = 'Cargando layouts para este circuito...',
+    ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
+    ['layouts.load_error_short'] = 'No se pudo cargar la lista de layouts.',
+    ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
+    ['layouts.download'] = 'DESCARGAR LAYOUT',
+    ['layouts.downloading'] = 'Descargando layout...',
+    ['layouts.downloaded'] = 'Layout %s descargado en la carpeta de DriftZonesEditor.',
+    ['layouts.download_error'] = 'No se pudo descargar el layout: %s',
+    ['layouts.reload'] = 'Recargar lista',
     ['teleport.title'] = 'Reaparicion / TP',
     ['teleport.save'] = 'Guardar punto actual',
     ['teleport.return'] = 'Volver al punto guardado',
@@ -855,6 +983,21 @@ function M.getJson(path, callback)
   if not ok then callback(nil, tostring(err)) end
 end
 
+function M.getText(path, callback)
+  local ok, err = pcall(function()
+    web.get(M.serverBaseUrl() .. path, function(e, response)
+      if e or not response or response.status ~= 200 then
+        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
+      end
+      if type(response.body) ~= 'string' then
+        return callback(nil, 'respuesta invalida')
+      end
+      callback(response.body)
+    end)
+  end)
+  if not ok then callback(nil, tostring(err)) end
+end
+
 return M
 end
 
@@ -876,6 +1019,7 @@ local TABS = {
   { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
   { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
   { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
+  { id = 'layouts',  label = 'tab.layouts',  height = 580, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
   { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
@@ -1220,6 +1364,62 @@ return function()
     smallText(I18N.get('car.no_slots'))
   elseif not selected then
     smallText(I18N.get('car.choose'))
+  end
+end
+end
+
+-- ===== modulo: ui/tabs/layouts (src/ui/tabs/layouts.lua) =====
+__modules['ui/tabs/layouts'] = function()
+-- Pestana: layouts de DriftZonesEditor publicados por el servidor.
+local layoutsFeature = import('features/layouts')
+local mapvote = import('features/mapvote')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
+local state = layoutsFeature.data
+
+return function()
+  local current = mapvote.data.status and mapvote.data.status.current
+  if current then
+    sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
+  else
+    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
+    smallText(I18N.get('layouts.track_unavailable'))
+    return
+  end
+
+  if state.status == 'loading' then
+    smallText(I18N.get('layouts.loading'))
+    return
+  elseif state.status == 'error' then
+    smallText(I18N.get('layouts.load_error_short'))
+  elseif state.status == 'ok' and #state.layouts == 0 then
+    smallText(I18N.get('layouts.empty'))
+  end
+
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+  ui.childWindow('acs_layout_list', vec2(-0.1, 260), false, function()
+    for _, layout in ipairs(state.layouts) do
+      if styledButton(layout.name .. '##layout_' .. layout.name,
+          vec2(-0.1, 32), state.selected == layout.name) then
+        state.selected = layout.name
+      end
+    end
+  end)
+  ui.popStyleVar(1)
+  ui.popStyleColor(1)
+
+  ui.dummy(vec2(0, 8))
+  if styledButton(I18N.get('layouts.download'),
+      vec2(-0.1, 38), true, not state.selected or state.downloading) then
+    layoutsFeature.download(state.selected)
+  end
+  if state.downloading then smallText(I18N.get('layouts.downloading')) end
+
+  ui.dummy(vec2(0, 6))
+  if styledButton(I18N.get('layouts.reload'), vec2(-0.1, 26), false) then
+    layoutsFeature.refresh(current.track)
   end
 end
 end
@@ -1717,6 +1917,7 @@ local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
+local layouts = import('features/layouts')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
 
@@ -1732,6 +1933,7 @@ function script.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
+  layouts.update(dt, core.state.open and core.state.tab == 'layouts')
 end
 
 function script.drawUI(dt)
