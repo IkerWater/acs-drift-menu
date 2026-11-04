@@ -73,7 +73,7 @@ return function()
   local needle = string.lower(mapvote.filter or '')
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 100)
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
   ui.childWindow('acs_map_list', vec2(-0.1, listHeight), false, function()
     local shown = 0
     for _, e in ipairs(mapvote.tracks) do

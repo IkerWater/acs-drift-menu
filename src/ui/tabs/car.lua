@@ -34,7 +34,7 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 104)
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
   ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
       local label = I18N.get('car.free', c.name, c.free, c.total, c.id)

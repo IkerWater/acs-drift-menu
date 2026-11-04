@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 17:07).
+-- GENERADO EL (2026-11-04 17:15).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -1425,7 +1425,7 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 104)
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
   ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
       local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
@@ -1489,7 +1489,7 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 80)
+  local listHeight = math.max(120, ui.availableSpaceY() - 140)
   ui.childWindow('acs_layout_list', vec2(-0.1, listHeight), false, function()
     for _, layout in ipairs(state.layouts) do
       if styledButton(layout.name .. '##layout_' .. layout.name,
@@ -1686,14 +1686,14 @@ return function()
   ui.childWindow('acs_skin_list', vec2(-0.1, listHeight), false, function()
     for i, s in ipairs(skinState.skins) do
       local buttonPos = ui.getCursor()
-      local label = '       ' .. s.label .. '##skin_' .. s.id
+      local label = '          ' .. s.label .. '##skin_' .. s.id
       if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
-      local previewMin = buttonPos + vec2(5, 2)
-      local previewMax = buttonPos + vec2(63, 46)
+      local previewMin = buttonPos + vec2(4, 1)
+      local previewMax = buttonPos + vec2(72, 47)
       ui.drawImage(s.preview or 'color::30303A', previewMin, previewMax,
-          rgbm.colors.white, vec2(0.08, 0.08), vec2(0.92, 0.92), ui.ImageFit.Fit)
+          rgbm.colors.white, vec2(0.18, 0.18), vec2(0.82, 0.82), ui.ImageFit.Fit)
     end
   end)
   ui.popStyleVar(1)
@@ -1823,7 +1823,7 @@ return function()
   local needle = string.lower(mapvote.filter or '')
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 100)
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
   ui.childWindow('acs_map_list', vec2(-0.1, listHeight), false, function()
     local shown = 0
     for _, e in ipairs(mapvote.tracks) do
