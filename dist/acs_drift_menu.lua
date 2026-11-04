@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-03 13:38).
+-- GENERADO EL (2026-11-04 13:29).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -323,10 +323,12 @@ local state = {
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
   downloading = false,
+  editorInstalled = nil,
   requestId = 0,
   downloadId = 0,
 }
 M.data = state
+local wasActive = false
 
 local function encodePathSegment(value)
   return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
@@ -341,6 +343,19 @@ local function validFileName(fileName)
       and fileName ~= '..'
       and not fileName:find('[/\\:]')
       and fileName:lower():match('%.lua$') ~= nil
+end
+
+local function getTracksDirectory()
+  local root = ac.getFolder(ac.FolderID.Root)
+  if type(root) ~= 'string' or root == '' then return nil end
+
+  local editorDirectory = root .. '/apps/lua/DriftZonesEditor'
+  local tracksDirectory = editorDirectory .. '/tracks'
+  if not io.fileExists(editorDirectory .. '/DriftZonesEditor.lua')
+      or not io.dirExists(tracksDirectory) then
+    return nil
+  end
+  return tracksDirectory
 end
 
 function M.refresh(track)
@@ -366,7 +381,15 @@ function M.refresh(track)
 end
 
 function M.update(_, active)
-  if not active then return end
+  if not active then
+    wasActive = false
+    return
+  end
+  if not wasActive then
+    state.editorInstalled = getTracksDirectory() ~= nil
+    wasActive = true
+  end
+
   local status = mapvote.data.status
   local track = status and status.current and status.current.track or nil
   if track ~= state.track then M.refresh(track) end
@@ -374,6 +397,13 @@ end
 
 function M.download(fileName)
   if not validFileName(fileName) or state.downloading then return end
+  local tracksDirectory = getTracksDirectory()
+  state.editorInstalled = tracksDirectory ~= nil
+  if not tracksDirectory then
+    core.notify(I18N.get('layouts.editor_required'))
+    return
+  end
+
   local available = false
   for _, layout in ipairs(state.layouts) do
     if layout.name == fileName then available = true break end
@@ -394,10 +424,11 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local directory = ac.getFolder(ac.FolderID.Root)
-          .. '/apps/lua/DriftZonesEditor/tracks'
-      io.createDir(directory)
-      if not io.dirExists(directory) then error('no se pudo crear la carpeta de DriftZonesEditor') end
+      local directory = getTracksDirectory()
+      if not directory then
+        state.editorInstalled = false
+        error(I18N.get('layouts.editor_required'))
+      end
       io.save(directory .. '/' .. fileName, content)
     end)
     state.downloading = false
@@ -768,6 +799,8 @@ local strings = {
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
+    ['layouts.checking_installation'] = 'Checking DriftZonesEditor installation...',
+    ['layouts.editor_required'] = 'Install DriftZonesEditor to download layouts.',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
@@ -888,6 +921,8 @@ local strings = {
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
+    ['layouts.checking_installation'] = 'Comprobando la instalacion de DriftZonesEditor...',
+    ['layouts.editor_required'] = 'Necesitas instalar DriftZonesEditor para descargar layouts.',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
@@ -1379,6 +1414,16 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 local state = layoutsFeature.data
 
 return function()
+  if state.editorInstalled == nil then
+    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
+    smallText(I18N.get('layouts.checking_installation'))
+    return
+  elseif not state.editorInstalled then
+    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
+    smallText(I18N.get('layouts.editor_required'))
+    return
+  end
+
   local current = mapvote.data.status and mapvote.data.status.current
   if current then
     sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)

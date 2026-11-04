@@ -11,10 +11,12 @@ local state = {
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
   downloading = false,
+  editorInstalled = nil,
   requestId = 0,
   downloadId = 0,
 }
 M.data = state
+local wasActive = false
 
 local function encodePathSegment(value)
   return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
@@ -29,6 +31,19 @@ local function validFileName(fileName)
       and fileName ~= '..'
       and not fileName:find('[/\\:]')
       and fileName:lower():match('%.lua$') ~= nil
+end
+
+local function getTracksDirectory()
+  local root = ac.getFolder(ac.FolderID.Root)
+  if type(root) ~= 'string' or root == '' then return nil end
+
+  local editorDirectory = root .. '/apps/lua/DriftZonesEditor'
+  local tracksDirectory = editorDirectory .. '/tracks'
+  if not io.fileExists(editorDirectory .. '/DriftZonesEditor.lua')
+      or not io.dirExists(tracksDirectory) then
+    return nil
+  end
+  return tracksDirectory
 end
 
 function M.refresh(track)
@@ -54,7 +69,15 @@ function M.refresh(track)
 end
 
 function M.update(_, active)
-  if not active then return end
+  if not active then
+    wasActive = false
+    return
+  end
+  if not wasActive then
+    state.editorInstalled = getTracksDirectory() ~= nil
+    wasActive = true
+  end
+
   local status = mapvote.data.status
   local track = status and status.current and status.current.track or nil
   if track ~= state.track then M.refresh(track) end
@@ -62,6 +85,13 @@ end
 
 function M.download(fileName)
   if not validFileName(fileName) or state.downloading then return end
+  local tracksDirectory = getTracksDirectory()
+  state.editorInstalled = tracksDirectory ~= nil
+  if not tracksDirectory then
+    core.notify(I18N.get('layouts.editor_required'))
+    return
+  end
+
   local available = false
   for _, layout in ipairs(state.layouts) do
     if layout.name == fileName then available = true break end
@@ -82,10 +112,11 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local directory = ac.getFolder(ac.FolderID.Root)
-          .. '/apps/lua/DriftZonesEditor/tracks'
-      io.createDir(directory)
-      if not io.dirExists(directory) then error('no se pudo crear la carpeta de DriftZonesEditor') end
+      local directory = getTracksDirectory()
+      if not directory then
+        state.editorInstalled = false
+        error(I18N.get('layouts.editor_required'))
+      end
       io.save(directory .. '/' .. fileName, content)
     end)
     state.downloading = false
