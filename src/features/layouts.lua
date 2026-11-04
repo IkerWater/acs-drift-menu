@@ -37,13 +37,8 @@ local function getTracksDirectory()
   local root = ac.getFolder(ac.FolderID.Root)
   if type(root) ~= 'string' or root == '' then return nil end
 
-  local editorDirectory = root .. '/apps/lua/DriftZonesEditor'
-  local tracksDirectory = editorDirectory .. '/tracks'
-  if not io.fileExists(editorDirectory .. '/DriftZonesEditor.lua')
-      or not io.dirExists(tracksDirectory) then
-    return nil
-  end
-  return tracksDirectory
+  local tracksDirectory = root .. '/apps/lua/DriftZonesEditor/tracks'
+  return io.dirExists(tracksDirectory) and tracksDirectory or nil
 end
 
 function M.refresh(track)
