@@ -87,6 +87,19 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
+  T.sectionTitle(I18N.get('settings.toggle_key'))
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
   -- ── Comportamiento ────────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
   ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)

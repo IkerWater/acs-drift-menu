@@ -16,7 +16,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
   { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 620, draw = import('ui/tabs/settings') },
+  { id = 'settings', label = 'tab.settings', height = 680, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
@@ -36,7 +36,7 @@ local function visibleTabs()
   return out
 end
 
-local MAX_WIN_H    = 940
+local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
@@ -48,7 +48,7 @@ local FOOTER_HEIGHT = 38
 local CONTENT_BOTTOM_MARGIN = 12
 
 local function footerText()
-  return I18N.get('menu.footer')
+  return I18N.get('menu.footer', core.state.settings.toggleKeyName)
 end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
@@ -67,7 +67,10 @@ end
 -- en caliente y cambia cuanto ocupa la barra.
 local cachedWidth, cachedWidthKey
 local function tabsKey(tabs)
-  local parts = { core.state.settings.language }
+  local parts = {
+    core.state.settings.language,
+    core.state.settings.toggleKeyName,
+  }
   for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
   return table.concat(parts, ',')
 end
@@ -203,7 +206,7 @@ function M.drawWindow()
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
   local sw, sh = screenSize()
-  local h = math.min(requiredHeight(tabs) + 20, math.max(320, sh - 24))
+  local h = math.min(requiredHeight(tabs) + 40, math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX

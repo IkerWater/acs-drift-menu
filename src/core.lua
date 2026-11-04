@@ -1,6 +1,35 @@
 -- Estado compartido y utilidades basicas. No depende de ningun otro modulo.
 local M = {}
 
+local toggleKeyCandidates = {}
+for key = ui.KeyIndex.A, ui.KeyIndex.Z do
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = string.char(key),
+    index = key,
+  }
+end
+for digit = 0, 9 do
+  local name = 'D' .. digit
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = tostring(digit),
+    index = ui.KeyIndex[name],
+  }
+end
+for number = 1, 12 do
+  local name = 'F' .. number
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = name,
+    index = ui.KeyIndex[name],
+  }
+end
+
+local function isToggleKeyName(value)
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == value and candidate.index then return true end
+  end
+  return false
+end
+
 local storedSettings = ac.storage({
   language = 'en',
   accentIndex = 1,
@@ -8,6 +37,7 @@ local storedSettings = ac.storage({
   closeOnGas = false,
   posX = 0.5,
   posY = 0.5,
+  toggleKeyName = 'M',
 }, 'acsDriftMenu.')
 
 local function normalizedPosition(value)
@@ -36,8 +66,12 @@ accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
 local closeOnGas = storedSettings.closeOnGas
 if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
 
+local toggleKeyName = storedSettings.toggleKeyName
+if not isToggleKeyName(toggleKeyName) then toggleKeyName = 'M' end
+
 M.state = {
   open = false,
+  awaitingToggleKey = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
@@ -50,6 +84,7 @@ M.state = {
     closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
     posX        = normalizedPosition(storedSettings.posX),
     posY        = normalizedPosition(storedSettings.posY),
+    toggleKeyName = toggleKeyName,
   },
 }
 
@@ -61,9 +96,25 @@ function M.persistSettings()
   storedSettings.closeOnGas = settings.closeOnGas
   storedSettings.posX = settings.posX
   storedSettings.posY = settings.posY
+  storedSettings.toggleKeyName = settings.toggleKeyName
 end
 
 M.persistSettings()
+
+function M.toggleKeyIndex()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == M.state.settings.toggleKeyName then return candidate.index end
+  end
+  return ui.KeyIndex.M
+end
+
+function M.pressedToggleKeyName()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.index and ui.keyboardButtonPressed(candidate.index, false) then
+      return candidate.name
+    end
+  end
+end
 
 function M.notify(text)
   M.state.message, M.state.messageTime = text, os.clock()

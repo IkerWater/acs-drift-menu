@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 16:42).
+-- GENERADO EL (2026-11-04 16:50).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -19,8 +19,6 @@ __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
   version = 'v0.5',
-  toggleKey = ui.KeyIndex.M,
-
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
@@ -43,6 +41,35 @@ __modules['core'] = function()
 -- Estado compartido y utilidades basicas. No depende de ningun otro modulo.
 local M = {}
 
+local toggleKeyCandidates = {}
+for key = ui.KeyIndex.A, ui.KeyIndex.Z do
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = string.char(key),
+    index = key,
+  }
+end
+for digit = 0, 9 do
+  local name = 'D' .. digit
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = tostring(digit),
+    index = ui.KeyIndex[name],
+  }
+end
+for number = 1, 12 do
+  local name = 'F' .. number
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = name,
+    index = ui.KeyIndex[name],
+  }
+end
+
+local function isToggleKeyName(value)
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == value and candidate.index then return true end
+  end
+  return false
+end
+
 local storedSettings = ac.storage({
   language = 'en',
   accentIndex = 1,
@@ -50,6 +77,7 @@ local storedSettings = ac.storage({
   closeOnGas = false,
   posX = 0.5,
   posY = 0.5,
+  toggleKeyName = 'M',
 }, 'acsDriftMenu.')
 
 local function normalizedPosition(value)
@@ -78,8 +106,12 @@ accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
 local closeOnGas = storedSettings.closeOnGas
 if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
 
+local toggleKeyName = storedSettings.toggleKeyName
+if not isToggleKeyName(toggleKeyName) then toggleKeyName = 'M' end
+
 M.state = {
   open = false,
+  awaitingToggleKey = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
@@ -92,6 +124,7 @@ M.state = {
     closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
     posX        = normalizedPosition(storedSettings.posX),
     posY        = normalizedPosition(storedSettings.posY),
+    toggleKeyName = toggleKeyName,
   },
 }
 
@@ -103,9 +136,25 @@ function M.persistSettings()
   storedSettings.closeOnGas = settings.closeOnGas
   storedSettings.posX = settings.posX
   storedSettings.posY = settings.posY
+  storedSettings.toggleKeyName = settings.toggleKeyName
 end
 
 M.persistSettings()
+
+function M.toggleKeyIndex()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == M.state.settings.toggleKeyName then return candidate.index end
+  end
+  return ui.KeyIndex.M
+end
+
+function M.pressedToggleKeyName()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.index and ui.keyboardButtonPressed(candidate.index, false) then
+      return candidate.name
+    end
+  end
+end
 
 function M.notify(text)
   M.state.message, M.state.messageTime = text, os.clock()
@@ -707,7 +756,7 @@ local strings = {
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Settings',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] to close | ACS Drift by Water',
+    ['menu.footer'] = '[%s] to open/close | ACS Drift by Water',
     ['car.title'] = 'Car',
     ['car.loading'] = 'Loading available cars...',
     ['car.server_error'] = 'Could not reach the server.',
@@ -815,6 +864,11 @@ local strings = {
     ['settings.opacity'] = 'Opacity: %.2f',
     ['settings.position'] = 'On-screen position',
     ['settings.position_hint'] = '0% = left/top edge, 100% = right/bottom edge.',
+    ['settings.toggle_key'] = 'Menu toggle key',
+    ['settings.toggle_key_change'] = 'CHANGE KEY  [%s]',
+    ['settings.toggle_key_prompt'] = 'Press a letter, number or F1–F12 to assign it.',
+    ['settings.toggle_key_cancel'] = 'CANCEL',
+    ['settings.toggle_key_saved'] = 'Menu toggle key set to %s.',
     ['settings.behavior'] = 'Behavior',
     ['settings.close_gas'] = 'Close menu while accelerating',
   },
@@ -831,7 +885,7 @@ local strings = {
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Ajustes',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] para cerrar | ACS Drift by Water',
+    ['menu.footer'] = '[%s] para abrir/cerrar | ACS Drift by Water',
     ['car.title'] = 'Coche',
     ['car.loading'] = 'Consultando coches disponibles...',
     ['car.server_error'] = 'No se pudo consultar el servidor.',
@@ -939,6 +993,11 @@ local strings = {
     ['settings.opacity'] = 'Opacidad: %.2f',
     ['settings.position'] = 'Posicion en pantalla',
     ['settings.position_hint'] = '0% = pegado al borde izquierdo/superior, 100% = al derecho/inferior.',
+    ['settings.toggle_key'] = 'Tecla para abrir/cerrar el menú',
+    ['settings.toggle_key_change'] = 'CAMBIAR TECLA  [%s]',
+    ['settings.toggle_key_prompt'] = 'Pulsa una letra, número o F1–F12 para asignarla.',
+    ['settings.toggle_key_cancel'] = 'CANCELAR',
+    ['settings.toggle_key_saved'] = 'Tecla del menú asignada: %s.',
     ['settings.behavior'] = 'Comportamiento',
     ['settings.close_gas'] = 'Cerrar el menu al acelerar',
   },
@@ -1028,7 +1087,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
   { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 620, draw = import('ui/tabs/settings') },
+  { id = 'settings', label = 'tab.settings', height = 680, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
@@ -1048,7 +1107,7 @@ local function visibleTabs()
   return out
 end
 
-local MAX_WIN_H    = 940
+local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
@@ -1060,7 +1119,7 @@ local FOOTER_HEIGHT = 38
 local CONTENT_BOTTOM_MARGIN = 12
 
 local function footerText()
-  return I18N.get('menu.footer')
+  return I18N.get('menu.footer', core.state.settings.toggleKeyName)
 end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
@@ -1079,7 +1138,10 @@ end
 -- en caliente y cambia cuanto ocupa la barra.
 local cachedWidth, cachedWidthKey
 local function tabsKey(tabs)
-  local parts = { core.state.settings.language }
+  local parts = {
+    core.state.settings.language,
+    core.state.settings.toggleKeyName,
+  }
   for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
   return table.concat(parts, ',')
 end
@@ -1215,7 +1277,7 @@ function M.drawWindow()
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
   local sw, sh = screenSize()
-  local h = math.min(requiredHeight(tabs) + 20, math.max(320, sh - 24))
+  local h = math.min(requiredHeight(tabs) + 40, math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX
@@ -1541,6 +1603,19 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
+  T.sectionTitle(I18N.get('settings.toggle_key'))
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
   -- ── Comportamiento ────────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
   ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
@@ -1834,7 +1909,9 @@ function M.bigText(text, size, color)
 end
 
 function M.smallText(text, color)
-  ui.textColored(text, color or C.dim)
+  ui.pushStyleColor(ui.StyleColor.Text, color or C.dim)
+  ui.textWrapped(text)
+  ui.popStyleColor(1)
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
@@ -1936,8 +2013,8 @@ end
 -- ===== punto de entrada (src/main.lua) =====
 __modules['__main'] = function()
 -- Punto de entrada: engancha los callbacks de CSP. Aqui no hay logica propia.
-local CONFIG = import('config')
 local core = import('core')
+local I18N = import('i18n')
 local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
@@ -1962,7 +2039,20 @@ function script.update(dt)
 end
 
 function script.drawUI(dt)
-  if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
+  local waitingForToggleKey = core.state.awaitingToggleKey
+  if waitingForToggleKey and core.state.open then
+    local keyName = core.pressedToggleKeyName()
+    if keyName then
+      core.state.settings.toggleKeyName = keyName
+      core.state.awaitingToggleKey = false
+      core.persistSettings()
+      core.notify(I18N.get('settings.toggle_key_saved', keyName))
+    end
+  elseif waitingForToggleKey then
+    core.state.awaitingToggleKey = false
+  elseif ui.keyboardButtonPressed(core.toggleKeyIndex(), false) then
+    core.state.open = not core.state.open
+  end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
 end

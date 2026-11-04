@@ -27,9 +27,9 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
 - **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, centrada
   por defecto, tema oscuro e idioma seleccionable entre inglés y español.
   El idioma, el color de acento, la transparencia, la posición y la opción de
-  cerrar al acelerar y la carpeta de descarga de layouts se guardan localmente en
-  CSP y se restauran al cargar el menú; no se sincronizan entre equipos ni se guardan
-  en el servidor.
+  cerrar al acelerar y la tecla para abrir/cerrar el menú se guardan localmente
+  en CSP y se restauran al cargar el menú; no se sincronizan entre equipos ni se
+  guardan en el servidor.
 
 ## Funciones del plugin de servidor
 

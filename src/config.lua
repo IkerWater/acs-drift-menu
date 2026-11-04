@@ -1,8 +1,6 @@
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
   version = 'v0.5',
-  toggleKey = ui.KeyIndex.M,
-
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el

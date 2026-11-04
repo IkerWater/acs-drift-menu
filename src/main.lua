@@ -1,6 +1,6 @@
 -- Punto de entrada: engancha los callbacks de CSP. Aqui no hay logica propia.
-local CONFIG = import('config')
 local core = import('core')
+local I18N = import('i18n')
 local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
@@ -25,7 +25,20 @@ function script.update(dt)
 end
 
 function script.drawUI(dt)
-  if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
+  local waitingForToggleKey = core.state.awaitingToggleKey
+  if waitingForToggleKey and core.state.open then
+    local keyName = core.pressedToggleKeyName()
+    if keyName then
+      core.state.settings.toggleKeyName = keyName
+      core.state.awaitingToggleKey = false
+      core.persistSettings()
+      core.notify(I18N.get('settings.toggle_key_saved', keyName))
+    end
+  elseif waitingForToggleKey then
+    core.state.awaitingToggleKey = false
+  elseif ui.keyboardButtonPressed(core.toggleKeyIndex(), false) then
+    core.state.open = not core.state.open
+  end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
 end
