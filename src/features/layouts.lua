@@ -11,12 +11,10 @@ local state = {
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
   downloading = false,
-  editorInstalled = nil,
   requestId = 0,
   downloadId = 0,
 }
 M.data = state
-local wasActive = false
 
 local function encodePathSegment(value)
   return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
@@ -33,12 +31,23 @@ local function validFileName(fileName)
       and fileName:lower():match('%.lua$') ~= nil
 end
 
-local function getTracksDirectory()
+function M.suggestedDownloadDirectory()
   local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
   if type(appsLua) ~= 'string' or appsLua == '' then return nil end
 
-  local tracksDirectory = appsLua .. '/DriftZonesEditor/tracks'
-  return io.dirExists(tracksDirectory) and tracksDirectory or nil
+  return appsLua .. '/DriftZonesEditor/tracks'
+end
+
+function M.normalizeDownloadDirectory(path)
+  if type(path) ~= 'string' then return nil end
+  path = path:match('^%s*(.-)%s*$')
+  if path == '' then return nil end
+
+  path = path:gsub('\\', '/')
+  while #path > 3 and path:sub(-1) == '/' do
+    path = path:sub(1, -2)
+  end
+  return path
 end
 
 function M.refresh(track)
@@ -64,14 +73,7 @@ function M.refresh(track)
 end
 
 function M.update(_, active)
-  if not active then
-    wasActive = false
-    return
-  end
-  if not wasActive then
-    state.editorInstalled = getTracksDirectory() ~= nil
-    wasActive = true
-  end
+  if not active then return end
 
   local status = mapvote.data.status
   local track = status and status.current and status.current.track or nil
@@ -80,10 +82,10 @@ end
 
 function M.download(fileName)
   if not validFileName(fileName) or state.downloading then return end
-  local tracksDirectory = getTracksDirectory()
-  state.editorInstalled = tracksDirectory ~= nil
+  local tracksDirectory = M.normalizeDownloadDirectory(
+      core.state.settings.layoutDownloadPath)
   if not tracksDirectory then
-    core.notify(I18N.get('layouts.editor_required'))
+    core.notify(I18N.get('layouts.path_required'))
     return
   end
 
@@ -97,6 +99,7 @@ function M.download(fileName)
   state.downloadId = state.downloadId + 1
   local downloadId = state.downloadId
   local track = state.track
+  local downloadDirectory = tracksDirectory
   local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
   net.getText(path, function(content, err)
     if downloadId ~= state.downloadId then return end
@@ -107,12 +110,10 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local directory = getTracksDirectory()
-      if not directory then
-        state.editorInstalled = false
-        error(I18N.get('layouts.editor_required'))
+      local saved, err = io.save(downloadDirectory .. '/' .. fileName, content)
+      if saved == false then
+        error(tostring(err or 'no se pudo guardar el archivo'))
       end
-      io.save(directory .. '/' .. fileName, content)
     end)
     state.downloading = false
     if ok then

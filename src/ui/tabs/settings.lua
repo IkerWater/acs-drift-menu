@@ -1,9 +1,13 @@
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Idioma, acento, transparencia, cierre al acelerar y posicion se persisten en el cliente.
+-- Los ajustes personales se persisten en el cliente, incluida la ruta de layouts.
 local core   = import('core')
+local layoutsFeature = import('features/layouts')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
 local C      = T.C
+local layoutPathDraft = core.state.settings.layoutDownloadPath
+local layoutPathMessage
+local layoutPathMessageIsError
 
 local function styledSlider(id, value, min, max, fmt)
   ui.pushStyleColor(ui.StyleColor.FrameBg,          C.surface)
@@ -88,7 +92,37 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
-    -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle(I18N.get('settings.layout_path'))
+  T.smallText(I18N.get('settings.layout_path_hint'))
+  local suggestedPath = layoutsFeature.suggestedDownloadDirectory()
+  if suggestedPath then
+    T.smallText(I18N.get('settings.layout_path_example', suggestedPath))
+  end
+  ui.setNextItemWidth(ui.availableSpaceX())
+  local editedPath = ui.inputText('##layoutdownloadpath', layoutPathDraft)
+  if editedPath ~= layoutPathDraft then
+    layoutPathDraft = editedPath
+    layoutPathMessage = nil
+  end
+  if T.styledButton(I18N.get('settings.layout_path_save'),
+      vec2(-0.1, 32), false) then
+    local validPath = layoutsFeature.normalizeDownloadDirectory(layoutPathDraft)
+    if validPath then
+      s.layoutDownloadPath = validPath
+      layoutPathDraft = validPath
+      core.persistSettings()
+      layoutPathMessage = I18N.get('settings.layout_path_saved')
+      layoutPathMessageIsError = false
+    else
+      layoutPathMessage = I18N.get('settings.layout_path_invalid')
+      layoutPathMessageIsError = true
+    end
+  end
+  if layoutPathMessage then
+    T.smallText(layoutPathMessage, layoutPathMessageIsError and C.accentHi or C.dim)
+  end
+
+  -- ── Comportamiento ────────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
   ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
   ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)

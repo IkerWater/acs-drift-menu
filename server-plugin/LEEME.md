@@ -61,8 +61,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   (cargado por la votación entre presets), copia antes su server_cfg.ini y su entry_list.ini a cfg/.
   Con `ApplyToAllPresets: true` cambia el circuito también en todos los presets.
 - El circuito debe estar instalado en el servidor (content/tracks) y en el juego de cada jugador.
-- Los layouts publicados se descargan en `assettocorsa/apps/lua/DriftZonesEditor/tracks`; el jugador
-  debe cargarlos desde DriftZonesEditor. Se sirven como archivos, no se ejecutan en el menú ACS Drift.
+- La carpeta local de descarga se configura en Ajustes del menú. Se recomienda
+  `assettocorsa/apps/lua/DriftZonesEditor/tracks`; el jugador debe cargar los layouts desde
+  DriftZonesEditor. Se sirven como archivos, no se ejecutan en el menú ACS Drift.
   DriftZonesEditor sí ejecuta el Lua al cargarlo, así que publica únicamente archivos de confianza.
 - Si el circuito no tiene ubicación en data_track_params.ini, activa "No pedir ubicación" en AC Panel.
 - `codigo-fuente/` es solo de referencia; el servidor usa `plugins/AcsDriftServerPlugin/`.

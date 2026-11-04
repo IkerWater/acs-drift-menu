@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 13:53).
+-- GENERADO EL (2026-11-04 14:01).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -50,6 +50,7 @@ local storedSettings = ac.storage({
   closeOnGas = false,
   posX = 0.5,
   posY = 0.5,
+  layoutDownloadPath = '',
 }, 'acsDriftMenu.')
 
 local function normalizedPosition(value)
@@ -78,13 +79,16 @@ accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
 local closeOnGas = storedSettings.closeOnGas
 if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
 
+local layoutDownloadPath = storedSettings.layoutDownloadPath
+if type(layoutDownloadPath) ~= 'string' then layoutDownloadPath = '' end
+
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
   savedPoint = nil,
-  -- Solo idioma, acento, cierre al acelerar y posicion se guardan en CSP.
+  -- Preferencias locales persistidas en CSP.
   settings = {
     language    = language, -- en | es; CSP Lua API does not expose a documented game-language getter.
     accentIndex = accentIndex, -- indice en T.ACCENTS
@@ -92,6 +96,7 @@ M.state = {
     closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
     posX        = normalizedPosition(storedSettings.posX),
     posY        = normalizedPosition(storedSettings.posY),
+    layoutDownloadPath = layoutDownloadPath,
   },
 }
 
@@ -103,6 +108,7 @@ function M.persistSettings()
   storedSettings.closeOnGas = settings.closeOnGas
   storedSettings.posX = settings.posX
   storedSettings.posY = settings.posY
+  storedSettings.layoutDownloadPath = settings.layoutDownloadPath
 end
 
 M.persistSettings()
@@ -323,12 +329,10 @@ local state = {
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
   downloading = false,
-  editorInstalled = nil,
   requestId = 0,
   downloadId = 0,
 }
 M.data = state
-local wasActive = false
 
 local function encodePathSegment(value)
   return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
@@ -345,12 +349,23 @@ local function validFileName(fileName)
       and fileName:lower():match('%.lua$') ~= nil
 end
 
-local function getTracksDirectory()
+function M.suggestedDownloadDirectory()
   local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
   if type(appsLua) ~= 'string' or appsLua == '' then return nil end
 
-  local tracksDirectory = appsLua .. '/DriftZonesEditor/tracks'
-  return io.dirExists(tracksDirectory) and tracksDirectory or nil
+  return appsLua .. '/DriftZonesEditor/tracks'
+end
+
+function M.normalizeDownloadDirectory(path)
+  if type(path) ~= 'string' then return nil end
+  path = path:match('^%s*(.-)%s*$')
+  if path == '' then return nil end
+
+  path = path:gsub('\\', '/')
+  while #path > 3 and path:sub(-1) == '/' do
+    path = path:sub(1, -2)
+  end
+  return path
 end
 
 function M.refresh(track)
@@ -376,14 +391,7 @@ function M.refresh(track)
 end
 
 function M.update(_, active)
-  if not active then
-    wasActive = false
-    return
-  end
-  if not wasActive then
-    state.editorInstalled = getTracksDirectory() ~= nil
-    wasActive = true
-  end
+  if not active then return end
 
   local status = mapvote.data.status
   local track = status and status.current and status.current.track or nil
@@ -392,10 +400,10 @@ end
 
 function M.download(fileName)
   if not validFileName(fileName) or state.downloading then return end
-  local tracksDirectory = getTracksDirectory()
-  state.editorInstalled = tracksDirectory ~= nil
+  local tracksDirectory = M.normalizeDownloadDirectory(
+      core.state.settings.layoutDownloadPath)
   if not tracksDirectory then
-    core.notify(I18N.get('layouts.editor_required'))
+    core.notify(I18N.get('layouts.path_required'))
     return
   end
 
@@ -409,6 +417,7 @@ function M.download(fileName)
   state.downloadId = state.downloadId + 1
   local downloadId = state.downloadId
   local track = state.track
+  local downloadDirectory = tracksDirectory
   local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
   net.getText(path, function(content, err)
     if downloadId ~= state.downloadId then return end
@@ -419,12 +428,10 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local directory = getTracksDirectory()
-      if not directory then
-        state.editorInstalled = false
-        error(I18N.get('layouts.editor_required'))
+      local saved, err = io.save(downloadDirectory .. '/' .. fileName, content)
+      if saved == false then
+        error(tostring(err or 'no se pudo guardar el archivo'))
       end
-      io.save(directory .. '/' .. fileName, content)
     end)
     state.downloading = false
     if ok then
@@ -794,8 +801,7 @@ local strings = {
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
-    ['layouts.checking_installation'] = 'Checking DriftZonesEditor installation...',
-    ['layouts.editor_required'] = 'Install DriftZonesEditor to download layouts.',
+    ['layouts.path_required'] = 'Set the download folder in Settings before downloading.',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
@@ -834,6 +840,12 @@ local strings = {
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
     ['settings.language'] = 'Language',
+    ['settings.layout_path'] = 'Layout download folder',
+    ['settings.layout_path_hint'] = 'Enter the full path to the folder. Copy it from File Explorer; the folder must already exist.',
+    ['settings.layout_path_example'] = 'Recommended for DriftZonesEditor: %s',
+    ['settings.layout_path_save'] = 'SAVE DOWNLOAD FOLDER',
+    ['settings.layout_path_saved'] = 'Download folder saved. Make sure the folder already exists.',
+    ['settings.layout_path_invalid'] = 'Enter a folder path before saving.',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
     ['settings.transparency'] = 'Background transparency',
@@ -916,8 +928,7 @@ local strings = {
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
-    ['layouts.checking_installation'] = 'Comprobando la instalacion de DriftZonesEditor...',
-    ['layouts.editor_required'] = 'Necesitas instalar DriftZonesEditor para descargar layouts.',
+    ['layouts.path_required'] = 'Configura la carpeta de descarga en Ajustes antes de descargar.',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
@@ -956,6 +967,12 @@ local strings = {
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
     ['settings.language'] = 'Idioma',
+    ['settings.layout_path'] = 'Carpeta para descargar layouts',
+    ['settings.layout_path_hint'] = 'Escribe la ruta completa de la carpeta. Cópiala desde el Explorador; la carpeta debe existir.',
+    ['settings.layout_path_example'] = 'Ruta recomendada para DriftZonesEditor: %s',
+    ['settings.layout_path_save'] = 'GUARDAR CARPETA DE DESCARGA',
+    ['settings.layout_path_saved'] = 'Carpeta guardada. Comprueba que la carpeta ya exista.',
+    ['settings.layout_path_invalid'] = 'Escribe una ruta de carpeta antes de guardarla.',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
     ['settings.transparency'] = 'Transparencia del fondo',
@@ -1051,7 +1068,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
   { id = 'layouts',  label = 'tab.layouts',  height = 580, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
+  { id = 'settings',  label = 'tab.settings',  height = 660, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
@@ -1409,16 +1426,6 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 local state = layoutsFeature.data
 
 return function()
-  if state.editorInstalled == nil then
-    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
-    smallText(I18N.get('layouts.checking_installation'))
-    return
-  elseif not state.editorInstalled then
-    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
-    smallText(I18N.get('layouts.editor_required'))
-    return
-  end
-
   local current = mapvote.data.status and mapvote.data.status.current
   if current then
     sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
@@ -1467,11 +1474,15 @@ end
 -- ===== modulo: ui/tabs/settings (src/ui/tabs/settings.lua) =====
 __modules['ui/tabs/settings'] = function()
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Idioma, acento, transparencia, cierre al acelerar y posicion se persisten en el cliente.
+-- Los ajustes personales se persisten en el cliente, incluida la ruta de layouts.
 local core   = import('core')
+local layoutsFeature = import('features/layouts')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
 local C      = T.C
+local layoutPathDraft = core.state.settings.layoutDownloadPath
+local layoutPathMessage
+local layoutPathMessageIsError
 
 local function styledSlider(id, value, min, max, fmt)
   ui.pushStyleColor(ui.StyleColor.FrameBg,          C.surface)
@@ -1556,7 +1567,37 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
-    -- ── Comportamiento ───────────────────────────────────────────────────────
+  T.sectionTitle(I18N.get('settings.layout_path'))
+  T.smallText(I18N.get('settings.layout_path_hint'))
+  local suggestedPath = layoutsFeature.suggestedDownloadDirectory()
+  if suggestedPath then
+    T.smallText(I18N.get('settings.layout_path_example', suggestedPath))
+  end
+  ui.setNextItemWidth(ui.availableSpaceX())
+  local editedPath = ui.inputText('##layoutdownloadpath', layoutPathDraft)
+  if editedPath ~= layoutPathDraft then
+    layoutPathDraft = editedPath
+    layoutPathMessage = nil
+  end
+  if T.styledButton(I18N.get('settings.layout_path_save'),
+      vec2(-0.1, 32), false) then
+    local validPath = layoutsFeature.normalizeDownloadDirectory(layoutPathDraft)
+    if validPath then
+      s.layoutDownloadPath = validPath
+      layoutPathDraft = validPath
+      core.persistSettings()
+      layoutPathMessage = I18N.get('settings.layout_path_saved')
+      layoutPathMessageIsError = false
+    else
+      layoutPathMessage = I18N.get('settings.layout_path_invalid')
+      layoutPathMessageIsError = true
+    end
+  end
+  if layoutPathMessage then
+    T.smallText(layoutPathMessage, layoutPathMessageIsError and C.accentHi or C.dim)
+  end
+
+  -- ── Comportamiento ────────────────────────────────────────────────────────
   T.sectionTitle(I18N.get('settings.behavior'))
   ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
   ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)

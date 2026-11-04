@@ -7,16 +7,6 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 local state = layoutsFeature.data
 
 return function()
-  if state.editorInstalled == nil then
-    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
-    smallText(I18N.get('layouts.checking_installation'))
-    return
-  elseif not state.editorInstalled then
-    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
-    smallText(I18N.get('layouts.editor_required'))
-    return
-  end
-
   local current = mapvote.data.status and mapvote.data.status.current
   if current then
     sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
