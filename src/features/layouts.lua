@@ -34,10 +34,10 @@ local function validFileName(fileName)
 end
 
 local function getTracksDirectory()
-  local root = ac.getFolder(ac.FolderID.Root)
-  if type(root) ~= 'string' or root == '' then return nil end
+  local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
+  if type(appsLua) ~= 'string' or appsLua == '' then return nil end
 
-  local tracksDirectory = root .. '/apps/lua/DriftZonesEditor/tracks'
+  local tracksDirectory = appsLua .. '/DriftZonesEditor/tracks'
   return io.dirExists(tracksDirectory) and tracksDirectory or nil
 end
 

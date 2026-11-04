@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 13:29).
+-- GENERADO EL (2026-11-04 13:53).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -346,10 +346,10 @@ local function validFileName(fileName)
 end
 
 local function getTracksDirectory()
-  local root = ac.getFolder(ac.FolderID.Root)
-  if type(root) ~= 'string' or root == '' then return nil end
+  local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
+  if type(appsLua) ~= 'string' or appsLua == '' then return nil end
 
-  local tracksDirectory = root .. '/apps/lua/DriftZonesEditor/tracks'
+  local tracksDirectory = appsLua .. '/DriftZonesEditor/tracks'
   return io.dirExists(tracksDirectory) and tracksDirectory or nil
 end
 
