@@ -114,19 +114,23 @@ function M.download(fileName)
       return
     end
 
-    local ok, saveError = pcall(function()
-      local destination = downloadDirectory .. '/' .. fileName
-      io.createFileDir(destination)
-      local saved = io.save(destination, content)
-      if saved == false then
-        error('io.save devolvió false para: ' .. destination)
-      end
+    local destination = downloadDirectory .. '/' .. fileName
+    local started, startError = pcall(function()
+      io.saveAsync(destination, content, function(saveError)
+        if downloadId ~= state.downloadId then return end
+        state.downloading = false
+        if saveError then
+          core.notify(I18N.get('layouts.download_error',
+              tostring(saveError) .. ' [' .. destination .. ']'))
+        else
+          core.notify(I18N.get('layouts.downloaded', fileName))
+        end
+      end)
     end)
-    state.downloading = false
-    if ok then
-      core.notify(I18N.get('layouts.downloaded', fileName))
-    else
-      core.notify(I18N.get('layouts.download_error', tostring(saveError)))
+    if not started then
+      state.downloading = false
+      core.notify(I18N.get('layouts.download_error',
+          tostring(startError) .. ' [' .. destination .. ']'))
     end
   end)
 end
