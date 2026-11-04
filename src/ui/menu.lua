@@ -36,7 +36,7 @@ local function visibleTabs()
   return out
 end
 
-local MAX_WIN_H    = 900
+local MAX_WIN_H    = 940
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
@@ -45,6 +45,7 @@ local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
+local CONTENT_BOTTOM_MARGIN = 12
 
 local function footerText()
   return I18N.get('menu.footer')
@@ -182,7 +183,8 @@ local function drawMenu()
   local state = core.state
   local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
   local reservedHeight = FOOTER_HEIGHT + (hasStatus and STATUS_HEIGHT or 0)
-  local contentHeight = math.max(1, ui.availableSpaceY() - reservedHeight)
+  local contentHeight = math.max(1,
+      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
     if activeTab then activeTab.draw() end
@@ -201,7 +203,7 @@ function M.drawWindow()
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
   local sw, sh = screenSize()
-  local h = math.min(requiredHeight(tabs), math.max(320, sh - 24))
+  local h = math.min(requiredHeight(tabs) + 20, math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX
