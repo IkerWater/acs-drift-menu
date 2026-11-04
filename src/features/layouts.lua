@@ -85,6 +85,57 @@ function M.update(_, active)
   if track ~= state.track then M.refresh(track) end
 end
 
+local function replaceDownloadedFile(directory, fileName, content, downloadId, callback)
+  local suffix = tostring(os.time()) .. '_' .. tostring(downloadId)
+  local temporary, backup
+  local attempt = 0
+  repeat
+    attempt = attempt + 1
+    temporary = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.tmp'
+    backup = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.bak'
+  until not io.fileExists(temporary) and not io.fileExists(backup)
+
+  local destination = directory .. '/' .. fileName
+  io.saveAsync(temporary, content, function(saveError)
+    if saveError then
+      if io.fileExists(temporary) then io.deleteFile(temporary) end
+      callback(tostring(saveError) .. ' [' .. temporary .. ']')
+      return
+    end
+
+    local backupCreated = false
+    local ok, replaceError = pcall(function()
+      local hadExistingFile = io.fileExists(destination)
+      if hadExistingFile then
+        if not io.move(destination, backup) then
+          error('no se pudo conservar el archivo existente: ' .. destination)
+        end
+        backupCreated = true
+      end
+
+      if not io.move(temporary, destination) then
+        error('no se pudo reemplazar el archivo: ' .. destination)
+      end
+
+      if backupCreated and not io.deleteFile(backup) then
+        ac.log('[ACS Menu] No se pudo borrar el respaldo temporal: ' .. backup)
+      end
+    end)
+
+    if not ok then
+      if backupCreated and not io.fileExists(destination)
+          and not io.move(backup, destination) then
+        replaceError = tostring(replaceError)
+            .. '; no se pudo restaurar el archivo original: ' .. backup
+      end
+      if io.fileExists(temporary) then io.deleteFile(temporary) end
+      callback(tostring(replaceError))
+    else
+      callback(nil)
+    end
+  end)
+end
+
 function M.download(fileName)
   if not validFileName(fileName) or state.downloading then return end
   local tracksDirectory = M.normalizeDownloadDirectory(
@@ -116,7 +167,8 @@ function M.download(fileName)
 
     local destination = downloadDirectory .. '/' .. fileName
     local started, startError = pcall(function()
-      io.saveAsync(destination, content, function(saveError)
+      replaceDownloadedFile(downloadDirectory, fileName, content, downloadId,
+          function(saveError)
         if downloadId ~= state.downloadId then return end
         state.downloading = false
         if saveError then
