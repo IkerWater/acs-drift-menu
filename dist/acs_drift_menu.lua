@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 14:01).
+-- GENERADO EL (2026-11-04 14:29).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -360,6 +360,11 @@ function M.normalizeDownloadDirectory(path)
   if type(path) ~= 'string' then return nil end
   path = path:match('^%s*(.-)%s*$')
   if path == '' then return nil end
+  local quote = path:sub(1, 1)
+  if (quote == '"' or quote == "'") and path:sub(-1) == quote then
+    path = path:sub(2, -2):match('^%s*(.-)%s*$')
+  end
+  if path == '' then return nil end
 
   path = path:gsub('\\', '/')
   while #path > 3 and path:sub(-1) == '/' do
@@ -428,9 +433,11 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local saved, err = io.save(downloadDirectory .. '/' .. fileName, content)
+      local destination = downloadDirectory .. '/' .. fileName
+      io.createFileDir(destination)
+      local saved = io.save(destination, content)
       if saved == false then
-        error(tostring(err or 'no se pudo guardar el archivo'))
+        error('io.save devolvió false para: ' .. destination)
       end
     end)
     state.downloading = false
@@ -801,7 +808,7 @@ local strings = {
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
-    ['layouts.path_required'] = 'Set the download folder in Settings before downloading.',
+    ['layouts.path_required'] = 'Set the download folder in Settings before downloading a layout.',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
@@ -809,7 +816,7 @@ local strings = {
     ['layouts.empty'] = 'No layouts are available for this track.',
     ['layouts.download'] = 'DOWNLOAD LAYOUT',
     ['layouts.downloading'] = 'Downloading layout...',
-    ['layouts.downloaded'] = 'Downloaded %s to DriftZonesEditor tracks.',
+    ['layouts.downloaded'] = 'Downloaded %s to the configured folder.',
     ['layouts.download_error'] = 'Could not download layout: %s',
     ['layouts.reload'] = 'Reload list',
     ['teleport.title'] = 'Respawn / TP',
@@ -928,7 +935,7 @@ local strings = {
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
-    ['layouts.path_required'] = 'Configura la carpeta de descarga en Ajustes antes de descargar.',
+    ['layouts.path_required'] = 'Configura la carpeta de descarga en Ajustes antes de descargar un layout.',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
@@ -936,7 +943,7 @@ local strings = {
     ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
     ['layouts.download'] = 'DESCARGAR LAYOUT',
     ['layouts.downloading'] = 'Descargando layout...',
-    ['layouts.downloaded'] = 'Layout %s descargado en la carpeta de DriftZonesEditor.',
+    ['layouts.downloaded'] = 'Layout %s descargado en la carpeta configurada.',
     ['layouts.download_error'] = 'No se pudo descargar el layout: %s',
     ['layouts.reload'] = 'Recargar lista',
     ['teleport.title'] = 'Reaparicion / TP',
@@ -1420,19 +1427,29 @@ __modules['ui/tabs/layouts'] = function()
 -- Pestana: layouts de DriftZonesEditor publicados por el servidor.
 local layoutsFeature = import('features/layouts')
 local mapvote = import('features/mapvote')
+local core = import('core')
 local T = import('ui/theme')
 local I18N = import('i18n')
 local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
 local state = layoutsFeature.data
 
 return function()
+  local hasDownloadPath = layoutsFeature.normalizeDownloadDirectory(
+      core.state.settings.layoutDownloadPath) ~= nil
   local current = mapvote.data.status and mapvote.data.status.current
   if current then
     sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
   else
     sectionTitle(I18N.get('tab.layouts'), C.accentHi)
+    if not hasDownloadPath then
+      smallText(I18N.get('layouts.path_required'), C.accentHi)
+    end
     smallText(I18N.get('layouts.track_unavailable'))
     return
+  end
+
+  if not hasDownloadPath then
+    smallText(I18N.get('layouts.path_required'), C.accentHi)
   end
 
   if state.status == 'loading' then

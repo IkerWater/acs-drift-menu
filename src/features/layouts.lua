@@ -42,6 +42,11 @@ function M.normalizeDownloadDirectory(path)
   if type(path) ~= 'string' then return nil end
   path = path:match('^%s*(.-)%s*$')
   if path == '' then return nil end
+  local quote = path:sub(1, 1)
+  if (quote == '"' or quote == "'") and path:sub(-1) == quote then
+    path = path:sub(2, -2):match('^%s*(.-)%s*$')
+  end
+  if path == '' then return nil end
 
   path = path:gsub('\\', '/')
   while #path > 3 and path:sub(-1) == '/' do
@@ -110,9 +115,11 @@ function M.download(fileName)
     end
 
     local ok, saveError = pcall(function()
-      local saved, err = io.save(downloadDirectory .. '/' .. fileName, content)
+      local destination = downloadDirectory .. '/' .. fileName
+      io.createFileDir(destination)
+      local saved = io.save(destination, content)
       if saved == false then
-        error(tostring(err or 'no se pudo guardar el archivo'))
+        error('io.save devolvió false para: ' .. destination)
       end
     end)
     state.downloading = false
