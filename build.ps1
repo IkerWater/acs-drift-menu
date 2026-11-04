@@ -11,7 +11,7 @@ function Read-Lf([string]$p) { return ([System.IO.File]::ReadAllText($p) -replac
 $parts = New-Object System.Collections.Generic.List[string]
 $parts.Add('-- ACS Drift by Water - script ONLINE para CSP')
 $parts.Add("-- GENERADO EL ($(Get-Date -Format 'yyyy-MM-dd HH:mm')).")
-$parts.Add('-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.')
+$parts.Add('-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.')
 $parts.Add('')
 $parts.Add('local __modules, __cache = {}, {}')
 $parts.Add('local function import(name)')

@@ -21,7 +21,7 @@ def main():
     parts = [
         '-- ACS Drift by Water - script ONLINE para CSP',
         f'-- GENERADO EL ({datetime.datetime.now():%Y-%m-%d %H:%M}).',
-        '-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.',
+        '-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.',
         '',
         'local __modules, __cache = {}, {}',
         'local function import(name)',

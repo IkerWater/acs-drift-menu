@@ -18,7 +18,6 @@ function M.serverBaseUrl()
   return string.format('http://%s:%d', host, port)
 end
 
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
 function M.getJson(path, callback)
   local ok, err = pcall(function()
     web.get(M.serverBaseUrl() .. path, function(e, response)
@@ -27,21 +26,6 @@ function M.getJson(path, callback)
       end
       local parsedOk, data = pcall(JSON.parse, response.body)
       if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
-    end)
-  end)
-  if not ok then callback(nil, tostring(err)) end
-end
-
-function M.getText(path, callback)
-  local ok, err = pcall(function()
-    web.get(M.serverBaseUrl() .. path, function(e, response)
-      if e or not response or response.status ~= 200 then
-        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
-      end
-      if type(response.body) ~= 'string' then
-        return callback(nil, 'respuesta invalida')
-      end
-      callback(response.body)
     end)
   end)
   if not ok then callback(nil, tostring(err)) end

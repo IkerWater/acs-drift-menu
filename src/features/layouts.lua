@@ -88,12 +88,8 @@ function M.download(fileName)
     return
   end
 
-  local tracksDirectory = M.suggestedDownloadDirectory()
-  if tracksDirectory then
-    core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
-  else
-    core.notify(I18N.get('layouts.browser_opened_no_path', fileName))
-  end
+  core.notify(I18N.get('layouts.browser_opened',
+      fileName, M.suggestedDownloadDirectory()))
 end
 
 return M

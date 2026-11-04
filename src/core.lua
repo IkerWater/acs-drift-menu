@@ -131,9 +131,4 @@ function M.safe(label, fn, unavailableText)
   return ok
 end
 
-function M.sendChatCommand(cmd, sentMessage)
-  ac.sendChatMessage(cmd)
-  M.notify(sentMessage or ('Enviado: ' .. cmd))
-end
-
 return M

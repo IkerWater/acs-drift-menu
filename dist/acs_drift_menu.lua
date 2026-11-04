@@ -1,6 +1,6 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 17:15).
--- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
+-- GENERADO EL (2026-11-05 00:39).
+-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
 local function import(name)
@@ -18,7 +18,7 @@ end
 __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
-  version = 'v0.9',
+  version = 'v1.0',
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
@@ -169,11 +169,6 @@ function M.safe(label, fn, unavailableText)
         .. ' (' .. tostring(err):sub(1, 70) .. ')')
   end
   return ok
-end
-
-function M.sendChatCommand(cmd, sentMessage)
-  ac.sendChatMessage(cmd)
-  M.notify(sentMessage or ('Enviado: ' .. cmd))
 end
 
 return M
@@ -449,12 +444,8 @@ function M.download(fileName)
     return
   end
 
-  local tracksDirectory = M.suggestedDownloadDirectory()
-  if tracksDirectory then
-    core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
-  else
-    core.notify(I18N.get('layouts.browser_opened_no_path', fileName))
-  end
+  core.notify(I18N.get('layouts.browser_opened',
+      fileName, M.suggestedDownloadDirectory()))
 end
 
 return M
@@ -825,7 +816,6 @@ local strings = {
     ['layouts.empty'] = 'No layouts are available for this track.',
     ['layouts.download'] = 'OPEN LAYOUT DOWNLOAD',
     ['layouts.browser_opened'] = 'Requested %s in your browser. Example destination folder: %s',
-    ['layouts.browser_opened_no_path'] = 'Requested %s in your browser. Example destination: the DriftZonesEditor tracks folder.',
     ['layouts.open_unsupported'] = 'This CSP script context cannot open an external browser.',
     ['layouts.open_rejected'] = 'CSP rejected the request to open the browser.',
     ['layouts.open_error'] = 'Could not open the layout download: %s',
@@ -955,7 +945,6 @@ local strings = {
     ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
     ['layouts.download'] = 'ABRIR DESCARGA DEL LAYOUT',
     ['layouts.browser_opened'] = 'Se solicitó abrir %s en el navegador. Ruta de destino de ejemplo: %s',
-    ['layouts.browser_opened_no_path'] = 'Se solicitó abrir %s en el navegador. Ruta de ejemplo: carpeta tracks de DriftZonesEditor.',
     ['layouts.open_unsupported'] = 'Este contexto de script de CSP no puede abrir un navegador externo.',
     ['layouts.open_rejected'] = 'CSP rechazó la solicitud para abrir el navegador.',
     ['layouts.open_error'] = 'No se pudo abrir la descarga del layout: %s',
@@ -1037,7 +1026,6 @@ function M.serverBaseUrl()
   return string.format('http://%s:%d', host, port)
 end
 
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
 function M.getJson(path, callback)
   local ok, err = pcall(function()
     web.get(M.serverBaseUrl() .. path, function(e, response)
@@ -1046,21 +1034,6 @@ function M.getJson(path, callback)
       end
       local parsedOk, data = pcall(JSON.parse, response.body)
       if parsedOk and type(data) == 'table' then callback(data) else callback(nil, 'JSON invalido') end
-    end)
-  end)
-  if not ok then callback(nil, tostring(err)) end
-end
-
-function M.getText(path, callback)
-  local ok, err = pcall(function()
-    web.get(M.serverBaseUrl() .. path, function(e, response)
-      if e or not response or response.status ~= 200 then
-        return callback(nil, tostring(e or (response and response.status) or 'sin respuesta'))
-      end
-      if type(response.body) ~= 'string' then
-        return callback(nil, 'respuesta invalida')
-      end
-      callback(response.body)
     end)
   end)
   if not ok then callback(nil, tostring(err)) end
