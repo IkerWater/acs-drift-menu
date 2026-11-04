@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 16:24).
+-- GENERADO EL (2026-11-04 16:27).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -770,7 +770,8 @@ local strings = {
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
-    ['layouts.browser_hint'] = 'The browser controls where downloads are saved. Enable “Ask where to save each file” to choose a folder.',
+    ['layouts.browser_hint'] = 'These Lua layouts are for DriftZonesEditor. The browser controls where downloads are saved; enable “Ask where to save each file” to choose a folder.',
+    ['layouts.browser_path'] = 'Save downloaded files in: %s',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
@@ -893,7 +894,8 @@ local strings = {
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
-    ['layouts.browser_hint'] = 'El navegador controla dónde se guardan las descargas. Activa «Preguntar dónde guardar cada archivo» para elegir carpeta.',
+    ['layouts.browser_hint'] = 'Estos layouts Lua son para DriftZonesEditor. El navegador controla dónde se guardan; activa «Preguntar dónde guardar cada archivo» para elegir carpeta.',
+    ['layouts.browser_path'] = 'Guarda los archivos descargados en: %s',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
@@ -1411,6 +1413,9 @@ return function()
   end
 
   smallText(I18N.get('layouts.browser_hint'))
+  local downloadDirectory = layoutsFeature.suggestedDownloadDirectory()
+      or 'assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
+  smallText(I18N.get('layouts.browser_path', downloadDirectory), C.accentHi)
 
   if state.status == 'loading' then
     smallText(I18N.get('layouts.loading'))
