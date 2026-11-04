@@ -43,6 +43,8 @@ local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
 local GAP_TABS     = 6
 local GAP_SWATCH   = 5
+local STATUS_HEIGHT = 54
+local FOOTER_HEIGHT = 38
 
 local function footerText()
   return I18N.get('menu.footer')
@@ -179,7 +181,7 @@ local function drawMenu()
 
   local state = core.state
   local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
-  local reservedHeight = 46 + (hasStatus and 62 or 0)
+  local reservedHeight = FOOTER_HEIGHT + (hasStatus and STATUS_HEIGHT or 0)
   local contentHeight = math.max(1, ui.availableSpaceY() - reservedHeight)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
