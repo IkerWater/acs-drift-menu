@@ -8,7 +8,6 @@ local storedSettings = ac.storage({
   closeOnGas = false,
   posX = 0.5,
   posY = 0.5,
-  layoutDownloadPath = '',
 }, 'acsDriftMenu.')
 
 local function normalizedPosition(value)
@@ -37,9 +36,6 @@ accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
 local closeOnGas = storedSettings.closeOnGas
 if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
 
-local layoutDownloadPath = storedSettings.layoutDownloadPath
-if type(layoutDownloadPath) ~= 'string' then layoutDownloadPath = '' end
-
 M.state = {
   open = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
@@ -54,7 +50,6 @@ M.state = {
     closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
     posX        = normalizedPosition(storedSettings.posX),
     posY        = normalizedPosition(storedSettings.posY),
-    layoutDownloadPath = layoutDownloadPath,
   },
 }
 
@@ -66,7 +61,6 @@ function M.persistSettings()
   storedSettings.closeOnGas = settings.closeOnGas
   storedSettings.posX = settings.posX
   storedSettings.posY = settings.posY
-  storedSettings.layoutDownloadPath = settings.layoutDownloadPath
 end
 
 M.persistSettings()

@@ -8,23 +8,15 @@ local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitl
 local state = layoutsFeature.data
 
 return function()
-  local hasDownloadPath = layoutsFeature.normalizeDownloadDirectory(
-      core.state.settings.layoutDownloadPath) ~= nil
   local current = mapvote.data.status and mapvote.data.status.current
   if current then
     sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
   else
     sectionTitle(I18N.get('tab.layouts'), C.accentHi)
-    if not hasDownloadPath then
-      smallText(I18N.get('layouts.path_required'), C.accentHi)
-    end
     smallText(I18N.get('layouts.track_unavailable'))
     return
   end
 
-  if not hasDownloadPath then
-    smallText(I18N.get('layouts.path_required'), C.accentHi)
-  end
   smallText(I18N.get('layouts.browser_hint'))
 
   if state.status == 'loading' then

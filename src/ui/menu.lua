@@ -16,7 +16,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
   { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'settings', label = 'tab.settings', height = 620, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'

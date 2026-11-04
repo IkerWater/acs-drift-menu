@@ -36,23 +36,6 @@ function M.suggestedDownloadDirectory()
   return appsLua .. '\\DriftZonesEditor\\tracks'
 end
 
-function M.normalizeDownloadDirectory(path)
-  if type(path) ~= 'string' then return nil end
-  path = path:match('^%s*(.-)%s*$')
-  if path == '' then return nil end
-  local quote = path:sub(1, 1)
-  if (quote == '"' or quote == "'") and path:sub(-1) == quote then
-    path = path:sub(2, -2):match('^%s*(.-)%s*$')
-  end
-  if path == '' then return nil end
-
-  path = path:gsub('\\', '/')
-  while #path > 3 and path:sub(-1) == '/' do
-    path = path:sub(1, -2)
-  end
-  return path
-end
-
 function M.refresh(track)
   state.requestId = state.requestId + 1
   local requestId = state.requestId
@@ -83,12 +66,6 @@ end
 
 function M.download(fileName)
   if not validFileName(fileName) then return end
-  local tracksDirectory = M.normalizeDownloadDirectory(
-      core.state.settings.layoutDownloadPath)
-  if not tracksDirectory then
-    core.notify(I18N.get('layouts.path_required'))
-    return
-  end
 
   local available = false
   for _, layout in ipairs(state.layouts) do
@@ -114,7 +91,12 @@ function M.download(fileName)
     return
   end
 
-  core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
+  local tracksDirectory = M.suggestedDownloadDirectory()
+  if tracksDirectory then
+    core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
+  else
+    core.notify(I18N.get('layouts.browser_opened_no_path', fileName))
+  end
 end
 
 return M
