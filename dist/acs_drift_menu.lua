@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 16:51).
+-- GENERADO EL (2026-11-04 16:58).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -1116,7 +1116,7 @@ local GAP_TABS     = 6
 local GAP_SWATCH   = 5
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
-local CONTENT_BOTTOM_MARGIN = 12
+local CONTENT_BOTTOM_MARGIN = 20
 
 local function footerText()
   return I18N.get('menu.footer', core.state.settings.toggleKeyName)
@@ -1127,8 +1127,6 @@ local function requiredHeight(tabs)
     local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
     h = math.max(h, tabHeight)
   end
-  local state = core.state
-  if state.message ~= '' and os.clock() - state.messageTime < 6 then h = h + 62 end
   return math.min(MAX_WIN_H, h)
 end
 
@@ -1231,6 +1229,8 @@ local function drawStatus()
     end)
     ui.popStyleVar(1)
     ui.popStyleColor(1)
+  else
+    ui.dummy(vec2(0, STATUS_HEIGHT))
   end
 end
 
@@ -1254,9 +1254,7 @@ local function drawMenu()
     end
   end
 
-  local state = core.state
-  local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
-  local reservedHeight = FOOTER_HEIGHT + (hasStatus and STATUS_HEIGHT or 0)
+  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
   local contentHeight = math.max(1,
       ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
