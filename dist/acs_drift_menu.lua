@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 15:23).
+-- GENERADO EL (2026-11-04 15:48).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -328,9 +328,7 @@ local state = {
   layouts = {},
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
-  downloading = false,
   requestId = 0,
-  downloadId = 0,
 }
 M.data = state
 
@@ -375,8 +373,6 @@ end
 
 function M.refresh(track)
   state.requestId = state.requestId + 1
-  state.downloadId = state.downloadId + 1
-  state.downloading = false
   local requestId = state.requestId
   state.track = track
   state.layouts = {}
@@ -403,59 +399,8 @@ function M.update(_, active)
   if track ~= state.track then M.refresh(track) end
 end
 
-local function replaceDownloadedFile(directory, fileName, content, downloadId, callback)
-  local suffix = tostring(os.time()) .. '_' .. tostring(downloadId)
-  local temporary, backup
-  local attempt = 0
-  repeat
-    attempt = attempt + 1
-    temporary = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.tmp'
-    backup = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.bak'
-  until not io.fileExists(temporary) and not io.fileExists(backup)
-
-  local destination = directory .. '/' .. fileName
-  io.saveAsync(temporary, content, function(saveError)
-    if saveError then
-      if io.fileExists(temporary) then io.deleteFile(temporary) end
-      callback(tostring(saveError) .. ' [' .. temporary .. ']')
-      return
-    end
-
-    local backupCreated = false
-    local ok, replaceError = pcall(function()
-      local hadExistingFile = io.fileExists(destination)
-      if hadExistingFile then
-        if not io.move(destination, backup) then
-          error('no se pudo conservar el archivo existente: ' .. destination)
-        end
-        backupCreated = true
-      end
-
-      if not io.move(temporary, destination) then
-        error('no se pudo reemplazar el archivo: ' .. destination)
-      end
-
-      if backupCreated and not io.deleteFile(backup) then
-        ac.log('[ACS Menu] No se pudo borrar el respaldo temporal: ' .. backup)
-      end
-    end)
-
-    if not ok then
-      if backupCreated and not io.fileExists(destination)
-          and not io.move(backup, destination) then
-        replaceError = tostring(replaceError)
-            .. '; no se pudo restaurar el archivo original: ' .. backup
-      end
-      if io.fileExists(temporary) then io.deleteFile(temporary) end
-      callback(tostring(replaceError))
-    else
-      callback(nil)
-    end
-  end)
-end
-
 function M.download(fileName)
-  if not validFileName(fileName) or state.downloading then return end
+  if not validFileName(fileName) then return end
   local tracksDirectory = M.normalizeDownloadDirectory(
       core.state.settings.layoutDownloadPath)
   if not tracksDirectory then
@@ -469,40 +414,25 @@ function M.download(fileName)
   end
   if not available or not state.track then return end
 
-  state.downloading = true
-  state.downloadId = state.downloadId + 1
-  local downloadId = state.downloadId
-  local track = state.track
-  local downloadDirectory = tracksDirectory
-  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
-  net.getText(path, function(content, err)
-    if downloadId ~= state.downloadId then return end
-    if not content then
-      state.downloading = false
-      core.notify(I18N.get('layouts.download_error', tostring(err)))
-      return
-    end
+  local openURL = type(os) == 'table' and os.openURL or nil
+  if type(openURL) ~= 'function' then
+    core.notify(I18N.get('layouts.open_unsupported'))
+    return
+  end
 
-    local destination = downloadDirectory .. '/' .. fileName
-    local started, startError = pcall(function()
-      replaceDownloadedFile(downloadDirectory, fileName, content, downloadId,
-          function(saveError)
-        if downloadId ~= state.downloadId then return end
-        state.downloading = false
-        if saveError then
-          core.notify(I18N.get('layouts.download_error',
-              tostring(saveError) .. ' [' .. destination .. ']'))
-        else
-          core.notify(I18N.get('layouts.downloaded', fileName))
-        end
-      end)
-    end)
-    if not started then
-      state.downloading = false
-      core.notify(I18N.get('layouts.download_error',
-          tostring(startError) .. ' [' .. destination .. ']'))
-    end
-  end)
+  local track = state.track
+  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
+  local url = net.serverBaseUrl() .. path
+  local opened, result = pcall(openURL, url)
+  if not opened then
+    core.notify(I18N.get('layouts.open_error', tostring(result)))
+    return
+  elseif result == false then
+    core.notify(I18N.get('layouts.open_error', I18N.get('layouts.open_rejected')))
+    return
+  end
+
+  core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
 end
 
 return M
@@ -864,16 +794,18 @@ local strings = {
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
-    ['layouts.path_required'] = 'Set the download folder in Settings before downloading a layout.',
+    ['layouts.path_required'] = 'Set the destination folder in Settings before opening a layout download.',
+    ['layouts.browser_hint'] = 'The browser handles saving. Enable “Ask where to save each file” and choose the folder set in Settings.',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
     ['layouts.load_error_short'] = 'Could not load the layout list.',
     ['layouts.empty'] = 'No layouts are available for this track.',
-    ['layouts.download'] = 'DOWNLOAD LAYOUT',
-    ['layouts.downloading'] = 'Downloading layout...',
-    ['layouts.downloaded'] = 'Downloaded %s to the configured folder.',
-    ['layouts.download_error'] = 'Could not download layout: %s',
+    ['layouts.download'] = 'OPEN LAYOUT DOWNLOAD',
+    ['layouts.browser_opened'] = 'Requested %s in your browser. Save it to: %s',
+    ['layouts.open_unsupported'] = 'This CSP script context cannot open an external browser.',
+    ['layouts.open_rejected'] = 'CSP rejected the request to open the browser.',
+    ['layouts.open_error'] = 'Could not open the layout download: %s',
     ['layouts.reload'] = 'Reload list',
     ['teleport.title'] = 'Respawn / TP',
     ['teleport.save'] = 'Save current point',
@@ -903,11 +835,11 @@ local strings = {
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
     ['settings.language'] = 'Language',
-    ['settings.layout_path'] = 'Layout download folder',
-    ['settings.layout_path_hint'] = 'Enter the full path to the folder. Copy it from File Explorer; the folder must already exist.',
+    ['settings.layout_path'] = 'Layout download destination',
+    ['settings.layout_path_hint'] = 'Enter the full destination path. The browser must be set to ask where to save downloads so you can choose this folder.',
     ['settings.layout_path_example'] = 'Recommended for DriftZonesEditor: %s',
-    ['settings.layout_path_save'] = 'SAVE DOWNLOAD FOLDER',
-    ['settings.layout_path_saved'] = 'Download folder saved. Make sure the folder already exists.',
+    ['settings.layout_path_save'] = 'SAVE DESTINATION FOLDER',
+    ['settings.layout_path_saved'] = 'Destination folder saved. Make sure it already exists and choose it in the browser save dialog.',
     ['settings.layout_path_invalid'] = 'Enter a folder path before saving.',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -991,16 +923,18 @@ local strings = {
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
-    ['layouts.path_required'] = 'Configura la carpeta de descarga en Ajustes antes de descargar un layout.',
+    ['layouts.path_required'] = 'Configura la carpeta de destino en Ajustes antes de abrir la descarga.',
+    ['layouts.browser_hint'] = 'El navegador guarda el archivo. Activa «Preguntar dónde guardar cada archivo» y elige la carpeta configurada en Ajustes.',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
     ['layouts.load_error_short'] = 'No se pudo cargar la lista de layouts.',
     ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
-    ['layouts.download'] = 'DESCARGAR LAYOUT',
-    ['layouts.downloading'] = 'Descargando layout...',
-    ['layouts.downloaded'] = 'Layout %s descargado en la carpeta configurada.',
-    ['layouts.download_error'] = 'No se pudo descargar el layout: %s',
+    ['layouts.download'] = 'ABRIR DESCARGA DEL LAYOUT',
+    ['layouts.browser_opened'] = 'Se solicitó abrir %s en el navegador. Guárdalo en: %s',
+    ['layouts.open_unsupported'] = 'Este contexto de script de CSP no puede abrir un navegador externo.',
+    ['layouts.open_rejected'] = 'CSP rechazó la solicitud para abrir el navegador.',
+    ['layouts.open_error'] = 'No se pudo abrir la descarga del layout: %s',
     ['layouts.reload'] = 'Recargar lista',
     ['teleport.title'] = 'Reaparicion / TP',
     ['teleport.save'] = 'Guardar punto actual',
@@ -1030,11 +964,11 @@ local strings = {
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
     ['settings.language'] = 'Idioma',
-    ['settings.layout_path'] = 'Carpeta para descargar layouts',
-    ['settings.layout_path_hint'] = 'Escribe la ruta completa de la carpeta. Cópiala desde el Explorador; la carpeta debe existir.',
+    ['settings.layout_path'] = 'Destino de descarga de layouts',
+    ['settings.layout_path_hint'] = 'Escribe la ruta completa de destino. El navegador debe preguntar dónde guardar para que puedas elegir esta carpeta.',
     ['settings.layout_path_example'] = 'Ruta recomendada para DriftZonesEditor: %s',
-    ['settings.layout_path_save'] = 'GUARDAR CARPETA DE DESCARGA',
-    ['settings.layout_path_saved'] = 'Carpeta guardada. Comprueba que la carpeta ya exista.',
+    ['settings.layout_path_save'] = 'GUARDAR CARPETA DE DESTINO',
+    ['settings.layout_path_saved'] = 'Carpeta de destino guardada. Comprueba que exista y selecciónala al guardar desde el navegador.',
     ['settings.layout_path_invalid'] = 'Escribe una ruta de carpeta antes de guardarla.',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -1126,13 +1060,13 @@ T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
-  { id = 'layouts',  label = 'tab.layouts',  height = 580, draw = import('ui/tabs/layouts')  },
-  { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings',  label = 'tab.settings',  height = 660, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
+  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
@@ -1294,7 +1228,7 @@ local function drawMenu()
 
   local state = core.state
   local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
-  local reservedHeight = 38 + (hasStatus and 54 or 0)
+  local reservedHeight = 46 + (hasStatus and 62 or 0)
   local contentHeight = math.max(1, ui.availableSpaceY() - reservedHeight)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
@@ -1518,6 +1452,7 @@ return function()
   if not hasDownloadPath then
     smallText(I18N.get('layouts.path_required'), C.accentHi)
   end
+  smallText(I18N.get('layouts.browser_hint'))
 
   if state.status == 'loading' then
     smallText(I18N.get('layouts.loading'))
@@ -1543,10 +1478,9 @@ return function()
 
   ui.dummy(vec2(0, 8))
   if styledButton(I18N.get('layouts.download'),
-      vec2(-0.1, 38), true, not state.selected or state.downloading) then
+      vec2(-0.1, 38), true, not state.selected) then
     layoutsFeature.download(state.selected)
   end
-  if state.downloading then smallText(I18N.get('layouts.downloading')) end
 
   ui.dummy(vec2(0, 6))
   if styledButton(I18N.get('layouts.reload'), vec2(-0.1, 26), false) then

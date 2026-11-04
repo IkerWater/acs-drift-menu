@@ -25,6 +25,7 @@ return function()
   if not hasDownloadPath then
     smallText(I18N.get('layouts.path_required'), C.accentHi)
   end
+  smallText(I18N.get('layouts.browser_hint'))
 
   if state.status == 'loading' then
     smallText(I18N.get('layouts.loading'))
@@ -50,10 +51,9 @@ return function()
 
   ui.dummy(vec2(0, 8))
   if styledButton(I18N.get('layouts.download'),
-      vec2(-0.1, 38), true, not state.selected or state.downloading) then
+      vec2(-0.1, 38), true, not state.selected) then
     layoutsFeature.download(state.selected)
   end
-  if state.downloading then smallText(I18N.get('layouts.downloading')) end
 
   ui.dummy(vec2(0, 6))
   if styledButton(I18N.get('layouts.reload'), vec2(-0.1, 26), false) then

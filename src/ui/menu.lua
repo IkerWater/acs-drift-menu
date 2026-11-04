@@ -11,13 +11,13 @@ T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
-  { id = 'layouts',  label = 'tab.layouts',  height = 580, draw = import('ui/tabs/layouts')  },
-  { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings',  label = 'tab.settings',  height = 660, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
+  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
@@ -179,7 +179,7 @@ local function drawMenu()
 
   local state = core.state
   local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
-  local reservedHeight = 38 + (hasStatus and 54 or 0)
+  local reservedHeight = 46 + (hasStatus and 62 or 0)
   local contentHeight = math.max(1, ui.availableSpaceY() - reservedHeight)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()

@@ -15,7 +15,8 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
   con el circuito, el progreso y los botones de voto. La pestaña Circuito se mantiene.
 - **Layouts de drift:** permite consultar los archivos de DriftZonesEditor publicados
   por el servidor para el circuito actual y descargarlos a una carpeta local elegida
-  en Ajustes. La ruta se guarda en el cliente.
+  en Ajustes. La ruta se guarda en el cliente; al descargar, se abre el navegador y
+  el usuario elige esa carpeta en el diálogo de guardado.
 - **Cambio local de skin:** permite elegir una skin instalada localmente y aplicarla
   a la vista del propio jugador.
 - **Teletransporte y reaparición:** guarda una ubicación, permite volver a ella o ir
@@ -36,10 +37,11 @@ está disponible, las pestañas que dependen de él muestran un aviso de conexi�
   libres, los circuitos disponibles, el estado de la votación y los presets
   configurados en el servidor.
 - **Layouts de DriftZonesEditor:** sirve archivos Lua de `layouts/<id del circuito>/`
-  desde la carpeta del plugin. Los archivos se descargan en
-  la carpeta local configurada en Ajustes (recomendada:
-  `assettocorsa/apps/lua/DriftZonesEditor/tracks`); después, el jugador los carga
-  manualmente desde DriftZonesEditor.
+  desde la carpeta del plugin. El menú abre el enlace de descarga en el navegador del
+  sistema, que gestiona la escritura del archivo. Activa en el navegador la opción
+  para preguntar dónde guardar cada descarga y elige la carpeta configurada en Ajustes
+  (recomendada: `assettocorsa/apps/lua/DriftZonesEditor/tracks`); después, el jugador
+  los carga manualmente desde DriftZonesEditor.
 - **Votaciones de circuito:** gestiona propuestas y votos, informa del resultado y
   aplica los cambios aprobados. Puede coordinar la transición y la reconexión de los
   jugadores según la configuración del servidor. Cambiar de circuito no modifica la

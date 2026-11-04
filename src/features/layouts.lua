@@ -10,9 +10,7 @@ local state = {
   layouts = {},
   status = 'idle', -- idle | loading | ok | error
   selected = nil,
-  downloading = false,
   requestId = 0,
-  downloadId = 0,
 }
 M.data = state
 
@@ -57,8 +55,6 @@ end
 
 function M.refresh(track)
   state.requestId = state.requestId + 1
-  state.downloadId = state.downloadId + 1
-  state.downloading = false
   local requestId = state.requestId
   state.track = track
   state.layouts = {}
@@ -85,59 +81,8 @@ function M.update(_, active)
   if track ~= state.track then M.refresh(track) end
 end
 
-local function replaceDownloadedFile(directory, fileName, content, downloadId, callback)
-  local suffix = tostring(os.time()) .. '_' .. tostring(downloadId)
-  local temporary, backup
-  local attempt = 0
-  repeat
-    attempt = attempt + 1
-    temporary = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.tmp'
-    backup = directory .. '/.acs_drift_' .. suffix .. '_' .. attempt .. '.bak'
-  until not io.fileExists(temporary) and not io.fileExists(backup)
-
-  local destination = directory .. '/' .. fileName
-  io.saveAsync(temporary, content, function(saveError)
-    if saveError then
-      if io.fileExists(temporary) then io.deleteFile(temporary) end
-      callback(tostring(saveError) .. ' [' .. temporary .. ']')
-      return
-    end
-
-    local backupCreated = false
-    local ok, replaceError = pcall(function()
-      local hadExistingFile = io.fileExists(destination)
-      if hadExistingFile then
-        if not io.move(destination, backup) then
-          error('no se pudo conservar el archivo existente: ' .. destination)
-        end
-        backupCreated = true
-      end
-
-      if not io.move(temporary, destination) then
-        error('no se pudo reemplazar el archivo: ' .. destination)
-      end
-
-      if backupCreated and not io.deleteFile(backup) then
-        ac.log('[ACS Menu] No se pudo borrar el respaldo temporal: ' .. backup)
-      end
-    end)
-
-    if not ok then
-      if backupCreated and not io.fileExists(destination)
-          and not io.move(backup, destination) then
-        replaceError = tostring(replaceError)
-            .. '; no se pudo restaurar el archivo original: ' .. backup
-      end
-      if io.fileExists(temporary) then io.deleteFile(temporary) end
-      callback(tostring(replaceError))
-    else
-      callback(nil)
-    end
-  end)
-end
-
 function M.download(fileName)
-  if not validFileName(fileName) or state.downloading then return end
+  if not validFileName(fileName) then return end
   local tracksDirectory = M.normalizeDownloadDirectory(
       core.state.settings.layoutDownloadPath)
   if not tracksDirectory then
@@ -151,40 +96,25 @@ function M.download(fileName)
   end
   if not available or not state.track then return end
 
-  state.downloading = true
-  state.downloadId = state.downloadId + 1
-  local downloadId = state.downloadId
-  local track = state.track
-  local downloadDirectory = tracksDirectory
-  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
-  net.getText(path, function(content, err)
-    if downloadId ~= state.downloadId then return end
-    if not content then
-      state.downloading = false
-      core.notify(I18N.get('layouts.download_error', tostring(err)))
-      return
-    end
+  local openURL = type(os) == 'table' and os.openURL or nil
+  if type(openURL) ~= 'function' then
+    core.notify(I18N.get('layouts.open_unsupported'))
+    return
+  end
 
-    local destination = downloadDirectory .. '/' .. fileName
-    local started, startError = pcall(function()
-      replaceDownloadedFile(downloadDirectory, fileName, content, downloadId,
-          function(saveError)
-        if downloadId ~= state.downloadId then return end
-        state.downloading = false
-        if saveError then
-          core.notify(I18N.get('layouts.download_error',
-              tostring(saveError) .. ' [' .. destination .. ']'))
-        else
-          core.notify(I18N.get('layouts.downloaded', fileName))
-        end
-      end)
-    end)
-    if not started then
-      state.downloading = false
-      core.notify(I18N.get('layouts.download_error',
-          tostring(startError) .. ' [' .. destination .. ']'))
-    end
-  end)
+  local track = state.track
+  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
+  local url = net.serverBaseUrl() .. path
+  local opened, result = pcall(openURL, url)
+  if not opened then
+    core.notify(I18N.get('layouts.open_error', tostring(result)))
+    return
+  elseif result == false then
+    core.notify(I18N.get('layouts.open_error', I18N.get('layouts.open_rejected')))
+    return
+  end
+
+  core.notify(I18N.get('layouts.browser_opened', fileName, tracksDirectory))
 end
 
 return M
