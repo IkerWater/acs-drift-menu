@@ -34,7 +34,8 @@ end
 return function()
   local s = core.state.settings
 
-  T.sectionTitle(I18N.get('settings.language'))
+  T.sectionTitle(I18N.get('settings.general'))
+  T.smallText(I18N.get('settings.language'), C.accentHi)
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
@@ -46,8 +47,34 @@ return function()
     core.persistSettings()
   end
 
+  ui.dummy(vec2(0, 6))
+  T.smallText(I18N.get('settings.toggle_key'), C.accentHi)
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
+  ui.dummy(vec2(0, 4))
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
+  end
+  ui.popStyleColor(4)
+
+  T.sectionTitle(I18N.get('settings.appearance'))
   -- ── Color de acento ──────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.accent'))
+  T.smallText(I18N.get('settings.accent'), C.accentHi)
   T.smallText(I18N.get('settings.accent_hint'))
   ui.dummy(vec2(0, 4))
   local n  = #T.ACCENTS
@@ -62,7 +89,7 @@ return function()
   end
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.transparency'))
+  T.smallText(I18N.get('settings.transparency'), C.accentHi)
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
@@ -71,7 +98,7 @@ return function()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
-  T.sectionTitle(I18N.get('settings.position'))
+  T.smallText(I18N.get('settings.position'), C.accentHi)
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
@@ -87,28 +114,4 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
-  T.sectionTitle(I18N.get('settings.toggle_key'))
-  if T.styledButton(I18N.get('settings.toggle_key_change',
-      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
-    core.state.awaitingToggleKey = true
-  end
-  if core.state.awaitingToggleKey then
-    T.smallText(I18N.get('settings.toggle_key_prompt'))
-    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
-        vec2(-0.1, 28), false) then
-      core.state.awaitingToggleKey = false
-    end
-  end
-
-  -- ── Comportamiento ────────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.behavior'))
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
-    core.persistSettings()
-  end
-  ui.popStyleColor(4)
 end

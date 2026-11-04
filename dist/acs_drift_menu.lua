@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 16:58).
+-- GENERADO EL (2026-11-04 17:07).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -18,7 +18,7 @@ end
 __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
-  version = 'v0.5',
+  version = 'v0.9',
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
@@ -857,6 +857,8 @@ local strings = {
     ['admin.preset_apply'] = 'CHANGE PRESET & RESTART',
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Appearance',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -869,7 +871,6 @@ local strings = {
     ['settings.toggle_key_prompt'] = 'Press a letter, number or F1–F12 to assign it.',
     ['settings.toggle_key_cancel'] = 'CANCEL',
     ['settings.toggle_key_saved'] = 'Menu toggle key set to %s.',
-    ['settings.behavior'] = 'Behavior',
     ['settings.close_gas'] = 'Close menu while accelerating',
   },
   es = {
@@ -986,6 +987,8 @@ local strings = {
     ['admin.preset_apply'] = 'CAMBIAR PRESET Y REINICIAR',
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Apariencia',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -998,7 +1001,6 @@ local strings = {
     ['settings.toggle_key_prompt'] = 'Pulsa una letra, número o F1–F12 para asignarla.',
     ['settings.toggle_key_cancel'] = 'CANCELAR',
     ['settings.toggle_key_saved'] = 'Tecla del menú asignada: %s.',
-    ['settings.behavior'] = 'Comportamiento',
     ['settings.close_gas'] = 'Cerrar el menu al acelerar',
   },
 }
@@ -1087,7 +1089,7 @@ local TABS = {
   { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
   { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
   { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 680, draw = import('ui/tabs/settings') },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
@@ -1423,7 +1425,8 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_car_list', vec2(-0.1, 220), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 104)
+  ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
       local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
       if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then
@@ -1486,7 +1489,8 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_layout_list', vec2(-0.1, 260), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 80)
+  ui.childWindow('acs_layout_list', vec2(-0.1, listHeight), false, function()
     for _, layout in ipairs(state.layouts) do
       if styledButton(layout.name .. '##layout_' .. layout.name,
           vec2(-0.1, 32), state.selected == layout.name) then
@@ -1548,7 +1552,8 @@ end
 return function()
   local s = core.state.settings
 
-  T.sectionTitle(I18N.get('settings.language'))
+  T.sectionTitle(I18N.get('settings.general'))
+  T.smallText(I18N.get('settings.language'), C.accentHi)
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
@@ -1560,8 +1565,34 @@ return function()
     core.persistSettings()
   end
 
+  ui.dummy(vec2(0, 6))
+  T.smallText(I18N.get('settings.toggle_key'), C.accentHi)
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
+  ui.dummy(vec2(0, 4))
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
+  end
+  ui.popStyleColor(4)
+
+  T.sectionTitle(I18N.get('settings.appearance'))
   -- ── Color de acento ──────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.accent'))
+  T.smallText(I18N.get('settings.accent'), C.accentHi)
   T.smallText(I18N.get('settings.accent_hint'))
   ui.dummy(vec2(0, 4))
   local n  = #T.ACCENTS
@@ -1576,7 +1607,7 @@ return function()
   end
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.transparency'))
+  T.smallText(I18N.get('settings.transparency'), C.accentHi)
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
@@ -1585,7 +1616,7 @@ return function()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
-  T.sectionTitle(I18N.get('settings.position'))
+  T.smallText(I18N.get('settings.position'), C.accentHi)
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
@@ -1601,30 +1632,6 @@ return function()
   end
   if positionChanged then core.persistSettings() end
 
-  T.sectionTitle(I18N.get('settings.toggle_key'))
-  if T.styledButton(I18N.get('settings.toggle_key_change',
-      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
-    core.state.awaitingToggleKey = true
-  end
-  if core.state.awaitingToggleKey then
-    T.smallText(I18N.get('settings.toggle_key_prompt'))
-    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
-        vec2(-0.1, 28), false) then
-      core.state.awaitingToggleKey = false
-    end
-  end
-
-  -- ── Comportamiento ────────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.behavior'))
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
-    core.persistSettings()
-  end
-  ui.popStyleColor(4)
 end
 end
 
@@ -1675,7 +1682,8 @@ return function()
   -- Lista con scroll para que no desborde la ventana si hay muchas skins
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 62)
+  ui.childWindow('acs_skin_list', vec2(-0.1, listHeight), false, function()
     for i, s in ipairs(skinState.skins) do
       local buttonPos = ui.getCursor()
       local label = '       ' .. s.label .. '##skin_' .. s.id
@@ -1815,7 +1823,8 @@ return function()
   local needle = string.lower(mapvote.filter or '')
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_map_list', vec2(-0.1, 230), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 100)
+  ui.childWindow('acs_map_list', vec2(-0.1, listHeight), false, function()
     local shown = 0
     for _, e in ipairs(mapvote.tracks) do
       if needle == '' or string.find(string.lower(e.name), needle, 1, true) then

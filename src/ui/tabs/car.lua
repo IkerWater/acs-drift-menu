@@ -34,7 +34,8 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_car_list', vec2(-0.1, 220), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 104)
+  ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
       local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
       if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then

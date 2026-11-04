@@ -32,7 +32,8 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_layout_list', vec2(-0.1, 260), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 80)
+  ui.childWindow('acs_layout_list', vec2(-0.1, listHeight), false, function()
     for _, layout in ipairs(state.layouts) do
       if styledButton(layout.name .. '##layout_' .. layout.name,
           vec2(-0.1, 32), state.selected == layout.name) then

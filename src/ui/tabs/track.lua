@@ -73,7 +73,8 @@ return function()
   local needle = string.lower(mapvote.filter or '')
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_map_list', vec2(-0.1, 230), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 100)
+  ui.childWindow('acs_map_list', vec2(-0.1, listHeight), false, function()
     local shown = 0
     for _, e in ipairs(mapvote.tracks) do
       if needle == '' or string.find(string.lower(e.name), needle, 1, true) then

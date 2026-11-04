@@ -117,6 +117,8 @@ local strings = {
     ['admin.preset_apply'] = 'CHANGE PRESET & RESTART',
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Appearance',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -129,7 +131,6 @@ local strings = {
     ['settings.toggle_key_prompt'] = 'Press a letter, number or F1–F12 to assign it.',
     ['settings.toggle_key_cancel'] = 'CANCEL',
     ['settings.toggle_key_saved'] = 'Menu toggle key set to %s.',
-    ['settings.behavior'] = 'Behavior',
     ['settings.close_gas'] = 'Close menu while accelerating',
   },
   es = {
@@ -246,6 +247,8 @@ local strings = {
     ['admin.preset_apply'] = 'CAMBIAR PRESET Y REINICIAR',
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Apariencia',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -258,7 +261,6 @@ local strings = {
     ['settings.toggle_key_prompt'] = 'Pulsa una letra, número o F1–F12 para asignarla.',
     ['settings.toggle_key_cancel'] = 'CANCELAR',
     ['settings.toggle_key_saved'] = 'Tecla del menú asignada: %s.',
-    ['settings.behavior'] = 'Comportamiento',
     ['settings.close_gas'] = 'Cerrar el menu al acelerar',
   },
 }

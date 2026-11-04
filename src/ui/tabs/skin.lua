@@ -43,7 +43,8 @@ return function()
   -- Lista con scroll para que no desborde la ventana si hay muchas skins
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 62)
+  ui.childWindow('acs_skin_list', vec2(-0.1, listHeight), false, function()
     for i, s in ipairs(skinState.skins) do
       local buttonPos = ui.getCursor()
       local label = '       ' .. s.label .. '##skin_' .. s.id

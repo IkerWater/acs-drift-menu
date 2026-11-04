@@ -1,6 +1,6 @@
-# ACS Drift by Water v0.5
+# ACS Drift by Water v0.9
 
-**Versión del menú: v0.5.** ACS Drift es un menú para Assetto Corsa con Custom Shaders Patch (CSP), acompañado
+**Versión del menú: v0.9.** ACS Drift es un menú para Assetto Corsa con Custom Shaders Patch (CSP), acompañado
 de un plugin para AssettoServer. Reúne herramientas para los pilotos y opciones
 de gestión para los administradores. El menú puede utilizarse sin el plugin; si no
 está disponible, las pestañas que dependen de él muestran un aviso de conexión.
