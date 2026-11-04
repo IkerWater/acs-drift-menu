@@ -353,7 +353,7 @@ function M.suggestedDownloadDirectory()
   local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
   if type(appsLua) ~= 'string' or appsLua == '' then return nil end
 
-  return appsLua .. '/DriftZonesEditor/tracks'
+  return appsLua .. '\\DriftZonesEditor\\tracks'
 end
 
 function M.normalizeDownloadDirectory(path)
