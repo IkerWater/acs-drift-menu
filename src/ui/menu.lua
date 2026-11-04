@@ -169,15 +169,26 @@ local function drawMenu()
   if OWN_BG then drawBackground() end
   header()
   drawTabBar(tabs)
+  local activeTab
   for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
-      tab.draw()
+      activeTab = tab
       break
     end
   end
+
+  local state = core.state
+  local hasStatus = state.message ~= '' and os.clock() - state.messageTime < 6
+  local reservedHeight = 38 + (hasStatus and 54 or 0)
+  local contentHeight = math.max(1, ui.availableSpaceY() - reservedHeight)
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
+  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
+    if activeTab then activeTab.draw() end
+  end)
+  ui.popStyleColor(1)
+
   drawStatus()
-  ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
-  ui.newLine()
+  ui.dummy(vec2(0, 6))
   ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
   ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
   ui.popStyleColor(1)
@@ -187,8 +198,8 @@ function M.drawWindow()
   local s = core.state.settings
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
-  local h = requiredHeight(tabs)
   local sw, sh = screenSize()
+  local h = math.min(requiredHeight(tabs), math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX
