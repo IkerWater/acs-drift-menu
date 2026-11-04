@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-04 16:27).
+-- GENERADO EL (2026-11-04 16:31).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -342,10 +342,7 @@ local function validFileName(fileName)
 end
 
 function M.suggestedDownloadDirectory()
-  local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
-  if type(appsLua) ~= 'string' or appsLua == '' then return nil end
-
-  return appsLua .. '\\DriftZonesEditor\\tracks'
+  return 'steamapps\\common\\assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
 end
 
 function M.refresh(track)
@@ -771,15 +768,15 @@ local strings = {
     ['track.list_error'] = 'Track list: %s',
     ['layouts.title'] = 'Drift layouts: %s',
     ['layouts.browser_hint'] = 'These Lua layouts are for DriftZonesEditor. The browser controls where downloads are saved; enable “Ask where to save each file” to choose a folder.',
-    ['layouts.browser_path'] = 'Save downloaded files in: %s',
+    ['layouts.browser_path'] = 'Example destination folder: %s',
     ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
     ['layouts.loading'] = 'Loading layouts for this track...',
     ['layouts.load_error'] = 'Could not load layouts: %s',
     ['layouts.load_error_short'] = 'Could not load the layout list.',
     ['layouts.empty'] = 'No layouts are available for this track.',
     ['layouts.download'] = 'OPEN LAYOUT DOWNLOAD',
-    ['layouts.browser_opened'] = 'Requested %s in your browser. Save it to: %s',
-    ['layouts.browser_opened_no_path'] = 'Requested %s in your browser. Save it to the DriftZonesEditor tracks folder.',
+    ['layouts.browser_opened'] = 'Requested %s in your browser. Example destination folder: %s',
+    ['layouts.browser_opened_no_path'] = 'Requested %s in your browser. Example destination: the DriftZonesEditor tracks folder.',
     ['layouts.open_unsupported'] = 'This CSP script context cannot open an external browser.',
     ['layouts.open_rejected'] = 'CSP rejected the request to open the browser.',
     ['layouts.open_error'] = 'Could not open the layout download: %s',
@@ -895,15 +892,15 @@ local strings = {
     ['track.list_error'] = 'Lista de mapas: %s',
     ['layouts.title'] = 'Layouts de drift: %s',
     ['layouts.browser_hint'] = 'Estos layouts Lua son para DriftZonesEditor. El navegador controla dónde se guardan; activa «Preguntar dónde guardar cada archivo» para elegir carpeta.',
-    ['layouts.browser_path'] = 'Guarda los archivos descargados en: %s',
+    ['layouts.browser_path'] = 'Ruta de destino de ejemplo: %s',
     ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
     ['layouts.loading'] = 'Cargando layouts para este circuito...',
     ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
     ['layouts.load_error_short'] = 'No se pudo cargar la lista de layouts.',
     ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
     ['layouts.download'] = 'ABRIR DESCARGA DEL LAYOUT',
-    ['layouts.browser_opened'] = 'Se solicitó abrir %s en el navegador. Guárdalo en: %s',
-    ['layouts.browser_opened_no_path'] = 'Se solicitó abrir %s en el navegador. Guárdalo en la carpeta tracks de DriftZonesEditor.',
+    ['layouts.browser_opened'] = 'Se solicitó abrir %s en el navegador. Ruta de destino de ejemplo: %s',
+    ['layouts.browser_opened_no_path'] = 'Se solicitó abrir %s en el navegador. Ruta de ejemplo: carpeta tracks de DriftZonesEditor.',
     ['layouts.open_unsupported'] = 'Este contexto de script de CSP no puede abrir un navegador externo.',
     ['layouts.open_rejected'] = 'CSP rechazó la solicitud para abrir el navegador.',
     ['layouts.open_error'] = 'No se pudo abrir la descarga del layout: %s',
@@ -1414,7 +1411,6 @@ return function()
 
   smallText(I18N.get('layouts.browser_hint'))
   local downloadDirectory = layoutsFeature.suggestedDownloadDirectory()
-      or 'assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
   smallText(I18N.get('layouts.browser_path', downloadDirectory), C.accentHi)
 
   if state.status == 'loading' then

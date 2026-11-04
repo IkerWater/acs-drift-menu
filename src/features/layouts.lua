@@ -30,10 +30,7 @@ local function validFileName(fileName)
 end
 
 function M.suggestedDownloadDirectory()
-  local appsLua = ac.getFolder(ac.FolderID.ACAppsLua)
-  if type(appsLua) ~= 'string' or appsLua == '' then return nil end
-
-  return appsLua .. '\\DriftZonesEditor\\tracks'
+  return 'steamapps\\common\\assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
 end
 
 function M.refresh(track)

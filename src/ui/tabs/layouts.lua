@@ -19,7 +19,6 @@ return function()
 
   smallText(I18N.get('layouts.browser_hint'))
   local downloadDirectory = layoutsFeature.suggestedDownloadDirectory()
-      or 'assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
   smallText(I18N.get('layouts.browser_path', downloadDirectory), C.accentHi)
 
   if state.status == 'loading' then
