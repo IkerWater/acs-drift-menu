@@ -1,55 +1,48 @@
-# ACS Drift v0.5 by Water
+# ACS Drift by Water v1.0
 
-**Versión del menú: v0.5.** ACS Drift es un menú para Assetto Corsa con Custom Shaders Patch (CSP), acompañado
-de un plugin para AssettoServer. Reúne herramientas para los pilotos y opciones
-de gestión para los administradores. El menú puede utilizarse sin el plugin; si no
-está disponible, las pestañas que dependen de él muestran un aviso de conexión.
+**ACS Drift** es un menú para Assetto Corsa pensado para las sesiones de drift en
+servidores online. Reúne en una sola ventana lo que un piloto necesita durante la
+sesión —cambiar de coche, votar el circuito, probar una skin o volver a un punto
+seguro— y, para quien administra el servidor, las herramientas para gestionarlo
+sin salir del juego.
 
-## Funciones del menú
+Funciona con Custom Shaders Patch (CSP). Con el plugin para AssettoServer obtiene
+toda su potencia; sin él, el menú sigue funcionando y las pestañas que dependen del
+servidor muestran un aviso de conexión.
 
-- **Cambio de coche:** consulta los coches y las plazas disponibles en el servidor
-  para facilitar el cambio y la reconexión.
-- **Votación de circuito:** muestra los circuitos disponibles y el estado de la
-  votación; permite proponer un circuito y votar a favor o en contra. Cuando hay
-  una votación activa, muestra una ventana flotante en la esquina superior derecha
-  con el circuito, el progreso y los botones de voto. La pestaña Circuito se mantiene.
-- **Cambio local de skin:** permite elegir una skin instalada localmente y aplicarla
-  a la vista del propio jugador.
-- **Teletransporte y reaparición:** guarda una ubicación, permite volver a ella o ir
-  a pits, y admite asignar una tecla o botón a la acción de retorno.
-- **Administración:** muestra opciones de administrador únicamente a las conexiones
-  reconocidas como administradores. Permite consultar los presets del servidor y
-  solicitar un cambio directo, sin votación.
-- **Interfaz personalizable:** ventana desplazable arrastrando la cabecera, centrada
-  por defecto, tema oscuro e idioma seleccionable entre inglés y español.
+## Lo que ofrece
 
-## Funciones del plugin de servidor
+- **Cambio de coche:** ves qué coches tienen plaza libre en el servidor antes de
+  reconectarte.
+- **Votación de circuito:** propón un circuito, vota a favor o en contra y sigue la
+  votación desde una ventana discreta que aparece en la esquina mientras dura.
+- **Layouts de drift:** descarga los layouts publicados por el servidor para el
+  circuito que estás corriendo y cárgalos en DriftZonesEditor.
+- **Skin local:** prueba cualquier skin instalada; el cambio solo lo ves tú.
+- **Teletransporte:** guarda un punto, vuelve a él cuando quieras o ve a pits con una
+  tecla asignada.
+- **Administración:** las opciones de admin solo aparecen para los administradores
+  reconocidos, y permiten cambiar de preset del servidor con aviso previo a todos los
+  jugadores.
+- **Interfaz a tu medida:** ventana arrastrable, tema oscuro, transparencia y color de
+  acento ajustables, y español o inglés según prefieras. Tus ajustes se guardan en tu
+  propio equipo.
 
-- **Información en tiempo real:** proporciona al menú la lista de coches con plazas
-  libres, los circuitos disponibles, el estado de la votación y los presets
-  configurados en el servidor.
-- **Votaciones de circuito:** gestiona propuestas y votos, informa del resultado y
-  aplica los cambios aprobados. Puede coordinar la transición y la reconexión de los
-  jugadores según la configuración del servidor. Cambiar de circuito no modifica la
-  lista de coches del servidor.
-- **Herramientas de administración:** ofrece comandos para consultar circuitos y
-  votaciones, cancelar o recargar una votación y aplicar un circuito directamente.
-  Las acciones administrativas se validan en el servidor.
-- **Cambio de preset:** permite a un administrador elegir un preset, avisa a todos
-  los jugadores y programa el reinicio del servidor con la nueva configuración.
-  Como la lista de coches puede cambiar, los jugadores deben volver a entrar desde
-  Content Manager y elegir un coche manualmente. El flujo actual envía un aviso de
-  desconexión individual y espera dos segundos antes de cerrar las conexiones; esta
-  última secuencia está pendiente de validación en juego.
-- **Comandos para jugadores:** incluye consultas de circuitos y estado, además de
-  comandos para proponer circuitos y votar.
+## Instalación
+
+1. Carga el menú como script online de CSP desde el archivo `dist/acs_drift_menu.lua`.
+2. Si administras un servidor, instala el plugin `AcsDriftServerPlugin` en AssettoServer
+   siguiendo la guía incluida en `server-plugin/LEEME.md`.
+
+Para generar el archivo del menú desde el código fuente, ejecuta `build.ps1` (o
+`build.bat`); `build.py` ofrece el mismo resultado si prefieres Python 3.
 
 ## Notas
 
-- El cambio de skin es local: no modifica la skin de los demás jugadores.
-- El cambio de circuito y el cambio de preset son acciones distintas: el primero se
-  integra con el sistema de votación y conserva la lista de coches; el cambio de
-  preset lo inicia directamente un administrador y es la función prevista para
-  cambiar los coches disponibles.
-- El idioma predeterminado del menú es inglés. El selector permite cambiarlo a
-  español durante la sesión.
+- Los cambios de skin son locales: no afectan a la vista de los demás jugadores.
+- Los layouts son scripts de DriftZonesEditor: descárgalos solo de servidores de
+  confianza.
+- Cambiar de circuito y cambiar de preset son cosas distintas. El primero pasa por la
+  votación y mantiene la lista de coches; el segundo lo decide un administrador y es la
+  vía para cambiar los coches disponibles.
+- El menú se entrega en inglés por defecto y puede cambiarse a español desde Ajustes.

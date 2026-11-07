@@ -7,15 +7,17 @@ local T = import('ui/theme')
 local I18N = import('i18n')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
+T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
-  { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
+  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
@@ -34,16 +36,19 @@ local function visibleTabs()
   return out
 end
 
-local MAX_WIN_H    = 900
+local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
 local GAP_TABS     = 6
 local GAP_SWATCH   = 5
+local STATUS_HEIGHT = 54
+local FOOTER_HEIGHT = 38
+local CONTENT_BOTTOM_MARGIN = 20
 
 local function footerText()
-  return I18N.get('menu.footer')
+  return I18N.get('menu.footer', core.state.settings.toggleKeyName)
 end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
@@ -51,8 +56,6 @@ local function requiredHeight(tabs)
     local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
     h = math.max(h, tabHeight)
   end
-  local state = core.state
-  if state.message ~= '' and os.clock() - state.messageTime < 6 then h = h + 62 end
   return math.min(MAX_WIN_H, h)
 end
 
@@ -62,7 +65,10 @@ end
 -- en caliente y cambia cuanto ocupa la barra.
 local cachedWidth, cachedWidthKey
 local function tabsKey(tabs)
-  local parts = { core.state.settings.language }
+  local parts = {
+    core.state.settings.language,
+    core.state.settings.toggleKeyName,
+  }
   for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
   return table.concat(parts, ',')
 end
@@ -152,6 +158,8 @@ local function drawStatus()
     end)
     ui.popStyleVar(1)
     ui.popStyleColor(1)
+  else
+    ui.dummy(vec2(0, STATUS_HEIGHT))
   end
 end
 
@@ -167,15 +175,25 @@ local function drawMenu()
   if OWN_BG then drawBackground() end
   header()
   drawTabBar(tabs)
+  local activeTab
   for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
-      tab.draw()
+      activeTab = tab
       break
     end
   end
+
+  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
+  local contentHeight = math.max(1,
+      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
+  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
+    if activeTab then activeTab.draw() end
+  end)
+  ui.popStyleColor(1)
+
   drawStatus()
-  ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
-  ui.newLine()
+  ui.dummy(vec2(0, 6))
   ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
   ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
   ui.popStyleColor(1)
@@ -185,8 +203,8 @@ function M.drawWindow()
   local s = core.state.settings
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
-  local h = requiredHeight(tabs)
   local sw, sh = screenSize()
+  local h = math.min(requiredHeight(tabs) + 40, math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX
@@ -205,6 +223,7 @@ function M.drawWindow()
       y = math.max(0, math.min(maxY, y + delta.y))
       s.posX = maxX > 0 and x / maxX or 0
       s.posY = maxY > 0 and y / maxY or 0
+      core.persistSettings()
     else
       dragging = false
     end

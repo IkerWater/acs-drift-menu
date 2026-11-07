@@ -43,17 +43,18 @@ return function()
   -- Lista con scroll para que no desborde la ventana si hay muchas skins
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 62)
+  ui.childWindow('acs_skin_list', vec2(-0.1, listHeight), false, function()
     for i, s in ipairs(skinState.skins) do
       local buttonPos = ui.getCursor()
-      local label = '       ' .. s.label .. '##skin_' .. s.id
+      local label = '          ' .. s.label .. '##skin_' .. s.id
       if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
-      local previewMin = buttonPos + vec2(5, 2)
-      local previewMax = buttonPos + vec2(63, 46)
+      local previewMin = buttonPos + vec2(4, 1)
+      local previewMax = buttonPos + vec2(72, 47)
       ui.drawImage(s.preview or 'color::30303A', previewMin, previewMax,
-          rgbm.colors.white, vec2(0.08, 0.08), vec2(0.92, 0.92), ui.ImageFit.Fit)
+          rgbm.colors.white, vec2(0.18, 0.18), vec2(0.82, 0.82), ui.ImageFit.Fit)
     end
   end)
   ui.popStyleVar(1)

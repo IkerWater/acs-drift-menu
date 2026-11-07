@@ -1,5 +1,4 @@
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Los cambios son inmediatos y duran la sesion (no se persisten en disco).
 local core   = import('core')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
@@ -35,18 +34,47 @@ end
 return function()
   local s = core.state.settings
 
-  T.sectionTitle(I18N.get('settings.language'))
+  T.sectionTitle(I18N.get('settings.general'))
+  T.smallText(I18N.get('settings.language'), C.accentHi)
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
+    core.persistSettings()
   end
   ui.sameLine(0, 6)
   if T.styledButton('Español', vec2(languageWidth, 32), s.language == 'es') then
     s.language = 'es'
+    core.persistSettings()
   end
 
+  ui.dummy(vec2(0, 6))
+  T.smallText(I18N.get('settings.toggle_key'), C.accentHi)
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
+  ui.dummy(vec2(0, 4))
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
+  end
+  ui.popStyleColor(4)
+
+  T.sectionTitle(I18N.get('settings.appearance'))
   -- ── Color de acento ──────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.accent'))
+  T.smallText(I18N.get('settings.accent'), C.accentHi)
   T.smallText(I18N.get('settings.accent_hint'))
   ui.dummy(vec2(0, 4))
   local n  = #T.ACCENTS
@@ -56,34 +84,34 @@ return function()
     if swatchBtn('ac'..i, I18N.get(a.name), a.c, a.hi, s.accentIndex == i, aw, 32) then
       s.accentIndex = i
       T.applyAccent(i)
+      core.persistSettings()
     end
   end
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.transparency'))
+  T.smallText(I18N.get('settings.transparency'), C.accentHi)
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
+    core.persistSettings()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
-  T.sectionTitle(I18N.get('settings.position'))
+  T.smallText(I18N.get('settings.position'), C.accentHi)
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
   local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX * 100 then s.posX = newX / 100 end
-  if newY ~= s.posY * 100 then s.posY = newY / 100 end
-
-    -- ── Comportamiento ───────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.behavior'))
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
+  local positionChanged = false
+  if newX ~= s.posX * 100 then
+    s.posX = newX / 100
+    positionChanged = true
   end
-  ui.popStyleColor(4)
+  if newY ~= s.posY * 100 then
+    s.posY = newY / 100
+    positionChanged = true
+  end
+  if positionChanged then core.persistSettings() end
+
 end

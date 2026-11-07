@@ -1,6 +1,6 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 15:47).
--- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
+-- GENERADO EL (2026-11-05 00:39).
+-- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
 local function import(name)
@@ -18,9 +18,7 @@ end
 __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
-  version = 'v0.5',
-  toggleKey = ui.KeyIndex.M,
-
+  version = 'v1.0',
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el
@@ -43,22 +41,120 @@ __modules['core'] = function()
 -- Estado compartido y utilidades basicas. No depende de ningun otro modulo.
 local M = {}
 
+local toggleKeyCandidates = {}
+for key = ui.KeyIndex.A, ui.KeyIndex.Z do
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = string.char(key),
+    index = key,
+  }
+end
+for digit = 0, 9 do
+  local name = 'D' .. digit
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = tostring(digit),
+    index = ui.KeyIndex[name],
+  }
+end
+for number = 1, 12 do
+  local name = 'F' .. number
+  toggleKeyCandidates[#toggleKeyCandidates + 1] = {
+    name = name,
+    index = ui.KeyIndex[name],
+  }
+end
+
+local function isToggleKeyName(value)
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == value and candidate.index then return true end
+  end
+  return false
+end
+
+local storedSettings = ac.storage({
+  language = 'en',
+  accentIndex = 1,
+  bgAlpha = 0.15,
+  closeOnGas = false,
+  posX = 0.5,
+  posY = 0.5,
+  toggleKeyName = 'M',
+}, 'acsDriftMenu.')
+
+local function normalizedPosition(value)
+  if type(value) ~= 'number' or value ~= value
+      or value == math.huge or value == -math.huge then
+    return 0.5
+  end
+  return math.max(0, math.min(1, value))
+end
+
+local function normalizedAlpha(value)
+  if type(value) ~= 'number' or value ~= value
+      or value == math.huge or value == -math.huge then
+    return 0.15
+  end
+  return math.max(0.01, math.min(1, value))
+end
+
+local language = storedSettings.language
+if language ~= 'en' and language ~= 'es' then language = 'en' end
+
+local accentIndex = storedSettings.accentIndex
+if type(accentIndex) ~= 'number' or accentIndex ~= accentIndex then accentIndex = 1 end
+accentIndex = math.max(1, math.min(5, math.floor(accentIndex)))
+
+local closeOnGas = storedSettings.closeOnGas
+if type(closeOnGas) ~= 'boolean' then closeOnGas = false end
+
+local toggleKeyName = storedSettings.toggleKeyName
+if not isToggleKeyName(toggleKeyName) then toggleKeyName = 'M' end
+
 M.state = {
   open = false,
+  awaitingToggleKey = false,
   tab = 'car',            -- id de la pestana activa (ver ui/menu.lua)
   carID = nil,            -- id del coche elegido en la pestana 'car' (lista leida del servidor)
   message = '', messageTime = 0,
   savedPoint = nil,
-  -- Ajustes del propio menu (pestana 'settings'). Solo duran la sesion.
+  -- Preferencias locales persistidas en CSP.
   settings = {
-    language    = 'en', -- en | es; CSP Lua API does not expose a documented game-language getter.
-    accentIndex = 1,   -- indice en T.ACCENTS
-    bgAlpha     = 0.15,
-    closeOnGas  = false, -- cerrar el menu al acelerar (ver main.lua)
-    posX        = 0.5,  -- fraccion del espacio libre horizontal (0 = izquierda, 1 = derecha)
-    posY        = 0.5,  -- fraccion del espacio libre vertical (0 = arriba, 1 = abajo)
+    language    = language, -- en | es; CSP Lua API does not expose a documented game-language getter.
+    accentIndex = accentIndex, -- indice en T.ACCENTS
+    bgAlpha     = normalizedAlpha(storedSettings.bgAlpha),
+    closeOnGas  = closeOnGas, -- cerrar el menu al acelerar (ver main.lua)
+    posX        = normalizedPosition(storedSettings.posX),
+    posY        = normalizedPosition(storedSettings.posY),
+    toggleKeyName = toggleKeyName,
   },
 }
+
+function M.persistSettings()
+  local settings = M.state.settings
+  storedSettings.language = settings.language
+  storedSettings.accentIndex = settings.accentIndex
+  storedSettings.bgAlpha = settings.bgAlpha
+  storedSettings.closeOnGas = settings.closeOnGas
+  storedSettings.posX = settings.posX
+  storedSettings.posY = settings.posY
+  storedSettings.toggleKeyName = settings.toggleKeyName
+end
+
+M.persistSettings()
+
+function M.toggleKeyIndex()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.name == M.state.settings.toggleKeyName then return candidate.index end
+  end
+  return ui.KeyIndex.M
+end
+
+function M.pressedToggleKeyName()
+  for _, candidate in ipairs(toggleKeyCandidates) do
+    if candidate.index and ui.keyboardButtonPressed(candidate.index, false) then
+      return candidate.name
+    end
+  end
+end
 
 function M.notify(text)
   M.state.message, M.state.messageTime = text, os.clock()
@@ -73,11 +169,6 @@ function M.safe(label, fn, unavailableText)
         .. ' (' .. tostring(err):sub(1, 70) .. ')')
   end
   return ok
-end
-
-function M.sendChatCommand(cmd, sentMessage)
-  ac.sendChatMessage(cmd)
-  M.notify(sentMessage or ('Enviado: ' .. cmd))
 end
 
 return M
@@ -256,6 +347,105 @@ function M.changeCar(carID)
   return core.safe(I18N.get('car.change_error'), function()
     ac.reconnectTo(params)
   end, I18N.get('common.unavailable'))
+end
+
+return M
+end
+
+-- ===== modulo: features/layouts (src/features/layouts.lua) =====
+__modules['features/layouts'] = function()
+-- Descarga de layouts de DriftZonesEditor publicados por el servidor.
+local core = import('core')
+local mapvote = import('features/mapvote')
+local net = import('net')
+local I18N = import('i18n')
+
+local M = {}
+local state = {
+  track = nil,
+  layouts = {},
+  status = 'idle', -- idle | loading | ok | error
+  selected = nil,
+  requestId = 0,
+}
+M.data = state
+
+local function encodePathSegment(value)
+  return (value:gsub('([^A-Za-z0-9_.~%-])', function(char)
+    return string.format('%%%02X', string.byte(char))
+  end))
+end
+
+local function validFileName(fileName)
+  return type(fileName) == 'string'
+      and fileName ~= ''
+      and fileName ~= '.'
+      and fileName ~= '..'
+      and not fileName:find('[/\\:]')
+      and fileName:lower():match('%.lua$') ~= nil
+end
+
+function M.suggestedDownloadDirectory()
+  return 'steamapps\\common\\assettocorsa\\apps\\lua\\DriftZonesEditor\\tracks'
+end
+
+function M.refresh(track)
+  state.requestId = state.requestId + 1
+  local requestId = state.requestId
+  state.track = track
+  state.layouts = {}
+  state.selected = nil
+  state.status = track and 'loading' or 'idle'
+  if not track then return end
+
+  net.getJson('/layouts/' .. encodePathSegment(track), function(data, err)
+    if requestId ~= state.requestId then return end
+    if data and type(data.layouts) == 'table' then
+      state.layouts, state.status = data.layouts, 'ok'
+    else
+      state.status = 'error'
+      core.notify(I18N.get('layouts.load_error', tostring(err or 'respuesta invalida')))
+    end
+  end)
+end
+
+function M.update(_, active)
+  if not active then return end
+
+  local status = mapvote.data.status
+  local track = status and status.current and status.current.track or nil
+  if track ~= state.track then M.refresh(track) end
+end
+
+function M.download(fileName)
+  if not validFileName(fileName) then return end
+
+  local available = false
+  for _, layout in ipairs(state.layouts) do
+    if layout.name == fileName then available = true break end
+  end
+  if not available or not state.track then return end
+
+  local openURL = type(os) == 'table' and os.openURL or nil
+  if type(openURL) ~= 'function' then
+    core.notify(I18N.get('layouts.open_unsupported'))
+    return
+  end
+
+  local track = state.track
+  local path = '/layouts/' .. encodePathSegment(track) .. '/' .. encodePathSegment(fileName)
+  local url = net.serverBaseUrl() .. path
+  local opened, result = pcall(openURL, url)
+  if not opened then
+    core.notify(I18N.get('layouts.open_error', tostring(result)))
+    return
+  elseif result == false then
+    core.notify(I18N.get('layouts.open_error', I18N.get('layouts.open_rejected')))
+    return
+  end
+
+  core.notify(I18N.get('layouts.browser_opened',
+      fileName, M.suggestedDownloadDirectory()))
 end
 
 return M
@@ -553,10 +743,11 @@ local strings = {
     ['tab.car'] = 'Car',
     ['tab.skin'] = 'Skin',
     ['tab.track'] = 'Track',
+    ['tab.layouts'] = 'Layouts',
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Settings',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] to close | ACS Drift by Water',
+    ['menu.footer'] = '[%s] to open/close | ACS Drift by Water',
     ['car.title'] = 'Car',
     ['car.loading'] = 'Loading available cars...',
     ['car.server_error'] = 'Could not reach the server.',
@@ -615,6 +806,20 @@ local strings = {
     ['track.already_current'] = 'You are already on this track.',
     ['track.reload'] = 'Reload list',
     ['track.list_error'] = 'Track list: %s',
+    ['layouts.title'] = 'Drift layouts: %s',
+    ['layouts.browser_hint'] = 'These Lua layouts are for DriftZonesEditor. The browser controls where downloads are saved; enable “Ask where to save each file” to choose a folder.',
+    ['layouts.browser_path'] = 'Example destination folder: %s',
+    ['layouts.track_unavailable'] = 'Could not determine the current track from the server.',
+    ['layouts.loading'] = 'Loading layouts for this track...',
+    ['layouts.load_error'] = 'Could not load layouts: %s',
+    ['layouts.load_error_short'] = 'Could not load the layout list.',
+    ['layouts.empty'] = 'No layouts are available for this track.',
+    ['layouts.download'] = 'OPEN LAYOUT DOWNLOAD',
+    ['layouts.browser_opened'] = 'Requested %s in your browser. Example destination folder: %s',
+    ['layouts.open_unsupported'] = 'This CSP script context cannot open an external browser.',
+    ['layouts.open_rejected'] = 'CSP rejected the request to open the browser.',
+    ['layouts.open_error'] = 'Could not open the layout download: %s',
+    ['layouts.reload'] = 'Reload list',
     ['teleport.title'] = 'Respawn / TP',
     ['teleport.save'] = 'Save current point',
     ['teleport.return'] = 'Return to saved point',
@@ -642,6 +847,8 @@ local strings = {
     ['admin.preset_apply'] = 'CHANGE PRESET & RESTART',
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Appearance',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -649,7 +856,11 @@ local strings = {
     ['settings.opacity'] = 'Opacity: %.2f',
     ['settings.position'] = 'On-screen position',
     ['settings.position_hint'] = '0% = left/top edge, 100% = right/bottom edge.',
-    ['settings.behavior'] = 'Behavior',
+    ['settings.toggle_key'] = 'Menu toggle key',
+    ['settings.toggle_key_change'] = 'CHANGE KEY  [%s]',
+    ['settings.toggle_key_prompt'] = 'Press a letter, number or F1–F12 to assign it.',
+    ['settings.toggle_key_cancel'] = 'CANCEL',
+    ['settings.toggle_key_saved'] = 'Menu toggle key set to %s.',
     ['settings.close_gas'] = 'Close menu while accelerating',
   },
   es = {
@@ -661,10 +872,11 @@ local strings = {
     ['tab.car'] = 'Coche',
     ['tab.skin'] = 'Skin',
     ['tab.track'] = 'Circuito',
+    ['tab.layouts'] = 'Layouts',
     ['tab.teleport'] = 'TP',
     ['tab.settings'] = 'Ajustes',
     ['tab.admin'] = 'Admin',
-    ['menu.footer'] = '[M] para cerrar | ACS Drift by Water',
+    ['menu.footer'] = '[%s] para abrir/cerrar | ACS Drift by Water',
     ['car.title'] = 'Coche',
     ['car.loading'] = 'Consultando coches disponibles...',
     ['car.server_error'] = 'No se pudo consultar el servidor.',
@@ -723,6 +935,20 @@ local strings = {
     ['track.already_current'] = 'Ya estas en ese mapa.',
     ['track.reload'] = 'Recargar lista',
     ['track.list_error'] = 'Lista de mapas: %s',
+    ['layouts.title'] = 'Layouts de drift: %s',
+    ['layouts.browser_hint'] = 'Estos layouts Lua son para DriftZonesEditor. El navegador controla dónde se guardan; activa «Preguntar dónde guardar cada archivo» para elegir carpeta.',
+    ['layouts.browser_path'] = 'Ruta de destino de ejemplo: %s',
+    ['layouts.track_unavailable'] = 'No se pudo determinar el circuito actual desde el servidor.',
+    ['layouts.loading'] = 'Cargando layouts para este circuito...',
+    ['layouts.load_error'] = 'No se pudieron cargar los layouts: %s',
+    ['layouts.load_error_short'] = 'No se pudo cargar la lista de layouts.',
+    ['layouts.empty'] = 'No hay layouts disponibles para este circuito.',
+    ['layouts.download'] = 'ABRIR DESCARGA DEL LAYOUT',
+    ['layouts.browser_opened'] = 'Se solicitó abrir %s en el navegador. Ruta de destino de ejemplo: %s',
+    ['layouts.open_unsupported'] = 'Este contexto de script de CSP no puede abrir un navegador externo.',
+    ['layouts.open_rejected'] = 'CSP rechazó la solicitud para abrir el navegador.',
+    ['layouts.open_error'] = 'No se pudo abrir la descarga del layout: %s',
+    ['layouts.reload'] = 'Recargar lista',
     ['teleport.title'] = 'Reaparicion / TP',
     ['teleport.save'] = 'Guardar punto actual',
     ['teleport.return'] = 'Volver al punto guardado',
@@ -750,6 +976,8 @@ local strings = {
     ['admin.preset_apply'] = 'CAMBIAR PRESET Y REINICIAR',
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
+    ['settings.general'] = 'General',
+    ['settings.appearance'] = 'Apariencia',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -757,7 +985,11 @@ local strings = {
     ['settings.opacity'] = 'Opacidad: %.2f',
     ['settings.position'] = 'Posicion en pantalla',
     ['settings.position_hint'] = '0% = pegado al borde izquierdo/superior, 100% = al derecho/inferior.',
-    ['settings.behavior'] = 'Comportamiento',
+    ['settings.toggle_key'] = 'Tecla para abrir/cerrar el menú',
+    ['settings.toggle_key_change'] = 'CAMBIAR TECLA  [%s]',
+    ['settings.toggle_key_prompt'] = 'Pulsa una letra, número o F1–F12 para asignarla.',
+    ['settings.toggle_key_cancel'] = 'CANCELAR',
+    ['settings.toggle_key_saved'] = 'Tecla del menú asignada: %s.',
     ['settings.close_gas'] = 'Cerrar el menu al acelerar',
   },
 }
@@ -794,7 +1026,6 @@ function M.serverBaseUrl()
   return string.format('http://%s:%d', host, port)
 end
 
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
 function M.getJson(path, callback)
   local ok, err = pcall(function()
     web.get(M.serverBaseUrl() .. path, function(e, response)
@@ -822,15 +1053,17 @@ local T = import('ui/theme')
 local I18N = import('i18n')
 local C, accentLine, styledButton = T.C, T.accentLine, T.styledButton
 T.applyBgAlpha(core.state.settings.bgAlpha)
+T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 440, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 580, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 800, draw = import('ui/tabs/track')    },
-  { id = 'teleport', label = 'tab.teleport', height = 480, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 580, draw = import('ui/tabs/settings') },
-  { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
+  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
@@ -849,16 +1082,19 @@ local function visibleTabs()
   return out
 end
 
-local MAX_WIN_H    = 900
+local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
 local GAP_TABS     = 6
 local GAP_SWATCH   = 5
+local STATUS_HEIGHT = 54
+local FOOTER_HEIGHT = 38
+local CONTENT_BOTTOM_MARGIN = 20
 
 local function footerText()
-  return I18N.get('menu.footer')
+  return I18N.get('menu.footer', core.state.settings.toggleKeyName)
 end
 local function requiredHeight(tabs)
   local h = MIN_WIN_H
@@ -866,8 +1102,6 @@ local function requiredHeight(tabs)
     local tabHeight = type(tab.height) == 'function' and tab.height(tab) or tab.height
     h = math.max(h, tabHeight)
   end
-  local state = core.state
-  if state.message ~= '' and os.clock() - state.messageTime < 6 then h = h + 62 end
   return math.min(MAX_WIN_H, h)
 end
 
@@ -877,7 +1111,10 @@ end
 -- en caliente y cambia cuanto ocupa la barra.
 local cachedWidth, cachedWidthKey
 local function tabsKey(tabs)
-  local parts = { core.state.settings.language }
+  local parts = {
+    core.state.settings.language,
+    core.state.settings.toggleKeyName,
+  }
   for _, t in ipairs(tabs) do parts[#parts + 1] = t.id end
   return table.concat(parts, ',')
 end
@@ -967,6 +1204,8 @@ local function drawStatus()
     end)
     ui.popStyleVar(1)
     ui.popStyleColor(1)
+  else
+    ui.dummy(vec2(0, STATUS_HEIGHT))
   end
 end
 
@@ -982,15 +1221,25 @@ local function drawMenu()
   if OWN_BG then drawBackground() end
   header()
   drawTabBar(tabs)
+  local activeTab
   for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
-      tab.draw()
+      activeTab = tab
       break
     end
   end
+
+  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
+  local contentHeight = math.max(1,
+      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
+  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
+    if activeTab then activeTab.draw() end
+  end)
+  ui.popStyleColor(1)
+
   drawStatus()
-  ui.dummy(vec2(0, math.max(0, ui.availableSpaceY() - 64)))
-  ui.newLine()
+  ui.dummy(vec2(0, 6))
   ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
   ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
   ui.popStyleColor(1)
@@ -1000,8 +1249,8 @@ function M.drawWindow()
   local s = core.state.settings
   local tabs = visibleTabs()
   local w = requiredWidth(tabs)
-  local h = requiredHeight(tabs)
   local sw, sh = screenSize()
+  local h = math.min(requiredHeight(tabs) + 40, math.max(320, sh - 24))
   -- % del espacio libre: 0% pega la ventana al borde, 100% al borde opuesto (nunca se sale).
   local maxX, maxY = math.max(0, sw - w), math.max(0, sh - h)
   local x = s.posX * maxX
@@ -1020,6 +1269,7 @@ function M.drawWindow()
       y = math.max(0, math.min(maxY, y + delta.y))
       s.posX = maxX > 0 and x / maxX or 0
       s.posY = maxY > 0 and y / maxY or 0
+      core.persistSettings()
     else
       dragging = false
     end
@@ -1148,7 +1398,8 @@ return function()
 
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_car_list', vec2(-0.1, 220), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
+  ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
       local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
       if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then
@@ -1175,10 +1426,70 @@ return function()
 end
 end
 
+-- ===== modulo: ui/tabs/layouts (src/ui/tabs/layouts.lua) =====
+__modules['ui/tabs/layouts'] = function()
+-- Pestana: layouts de DriftZonesEditor publicados por el servidor.
+local layoutsFeature = import('features/layouts')
+local mapvote = import('features/mapvote')
+local core = import('core')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
+local state = layoutsFeature.data
+
+return function()
+  local current = mapvote.data.status and mapvote.data.status.current
+  if current then
+    sectionTitle(I18N.get('layouts.title', current.name or current.track), C.accentHi)
+  else
+    sectionTitle(I18N.get('tab.layouts'), C.accentHi)
+    smallText(I18N.get('layouts.track_unavailable'))
+    return
+  end
+
+  smallText(I18N.get('layouts.browser_hint'))
+  local downloadDirectory = layoutsFeature.suggestedDownloadDirectory()
+  smallText(I18N.get('layouts.browser_path', downloadDirectory), C.accentHi)
+
+  if state.status == 'loading' then
+    smallText(I18N.get('layouts.loading'))
+    return
+  elseif state.status == 'error' then
+    smallText(I18N.get('layouts.load_error_short'))
+  elseif state.status == 'ok' and #state.layouts == 0 then
+    smallText(I18N.get('layouts.empty'))
+  end
+
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+  local listHeight = math.max(120, ui.availableSpaceY() - 140)
+  ui.childWindow('acs_layout_list', vec2(-0.1, listHeight), false, function()
+    for _, layout in ipairs(state.layouts) do
+      if styledButton(layout.name .. '##layout_' .. layout.name,
+          vec2(-0.1, 32), state.selected == layout.name) then
+        state.selected = layout.name
+      end
+    end
+  end)
+  ui.popStyleVar(1)
+  ui.popStyleColor(1)
+
+  ui.dummy(vec2(0, 8))
+  if styledButton(I18N.get('layouts.download'),
+      vec2(-0.1, 38), true, not state.selected) then
+    layoutsFeature.download(state.selected)
+  end
+
+  ui.dummy(vec2(0, 6))
+  if styledButton(I18N.get('layouts.reload'), vec2(-0.1, 26), false) then
+    layoutsFeature.refresh(current.track)
+  end
+end
+end
+
 -- ===== modulo: ui/tabs/settings (src/ui/tabs/settings.lua) =====
 __modules['ui/tabs/settings'] = function()
 -- Pestana: ajustes del propio menu (acento, texto, transparencia, posicion).
--- Los cambios son inmediatos y duran la sesion (no se persisten en disco).
 local core   = import('core')
 local T      = import('ui/theme')
 local I18N   = import('i18n')
@@ -1214,18 +1525,47 @@ end
 return function()
   local s = core.state.settings
 
-  T.sectionTitle(I18N.get('settings.language'))
+  T.sectionTitle(I18N.get('settings.general'))
+  T.smallText(I18N.get('settings.language'), C.accentHi)
   local languageWidth = (ui.availableSpaceX() - 6) / 2
   if T.styledButton('English', vec2(languageWidth, 32), s.language == 'en') then
     s.language = 'en'
+    core.persistSettings()
   end
   ui.sameLine(0, 6)
   if T.styledButton('Español', vec2(languageWidth, 32), s.language == 'es') then
     s.language = 'es'
+    core.persistSettings()
   end
 
+  ui.dummy(vec2(0, 6))
+  T.smallText(I18N.get('settings.toggle_key'), C.accentHi)
+  if T.styledButton(I18N.get('settings.toggle_key_change',
+      s.toggleKeyName), vec2(-0.1, 32), core.state.awaitingToggleKey) then
+    core.state.awaitingToggleKey = true
+  end
+  if core.state.awaitingToggleKey then
+    T.smallText(I18N.get('settings.toggle_key_prompt'))
+    if T.styledButton(I18N.get('settings.toggle_key_cancel'),
+        vec2(-0.1, 28), false) then
+      core.state.awaitingToggleKey = false
+    end
+  end
+
+  ui.dummy(vec2(0, 4))
+  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
+  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
+  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
+  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
+  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
+    s.closeOnGas = not s.closeOnGas
+    core.persistSettings()
+  end
+  ui.popStyleColor(4)
+
+  T.sectionTitle(I18N.get('settings.appearance'))
   -- ── Color de acento ──────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.accent'))
+  T.smallText(I18N.get('settings.accent'), C.accentHi)
   T.smallText(I18N.get('settings.accent_hint'))
   ui.dummy(vec2(0, 4))
   local n  = #T.ACCENTS
@@ -1235,36 +1575,36 @@ return function()
     if swatchBtn('ac'..i, I18N.get(a.name), a.c, a.hi, s.accentIndex == i, aw, 32) then
       s.accentIndex = i
       T.applyAccent(i)
+      core.persistSettings()
     end
   end
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.transparency'))
+  T.smallText(I18N.get('settings.transparency'), C.accentHi)
   local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
+    core.persistSettings()
   end
 
   -- ── Posicion en pantalla (en % de la pantalla, valido para cualquier resolucion) ──
-  T.sectionTitle(I18N.get('settings.position'))
+  T.smallText(I18N.get('settings.position'), C.accentHi)
   T.smallText(I18N.get('settings.position_hint'))
   ui.dummy(vec2(0, 4))
   local newX = styledSlider('##posx', s.posX * 100, 0, 100, 'X: %.0f%%')
   local newY = styledSlider('##posy', s.posY * 100, 0, 100, 'Y: %.0f%%')
-  if newX ~= s.posX * 100 then s.posX = newX / 100 end
-  if newY ~= s.posY * 100 then s.posY = newY / 100 end
-
-    -- ── Comportamiento ───────────────────────────────────────────────────────
-  T.sectionTitle(I18N.get('settings.behavior'))
-  ui.pushStyleColor(ui.StyleColor.FrameBg,        C.surface)
-  ui.pushStyleColor(ui.StyleColor.FrameBgHovered, C.surfaceHi)
-  ui.pushStyleColor(ui.StyleColor.CheckMark,      C.accentHi)
-  ui.pushStyleColor(ui.StyleColor.Text,           C.text)
-  if ui.checkbox(I18N.get('settings.close_gas'), s.closeOnGas) then
-    s.closeOnGas = not s.closeOnGas
+  local positionChanged = false
+  if newX ~= s.posX * 100 then
+    s.posX = newX / 100
+    positionChanged = true
   end
-  ui.popStyleColor(4)
+  if newY ~= s.posY * 100 then
+    s.posY = newY / 100
+    positionChanged = true
+  end
+  if positionChanged then core.persistSettings() end
+
 end
 end
 
@@ -1315,17 +1655,18 @@ return function()
   -- Lista con scroll para que no desborde la ventana si hay muchas skins
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_skin_list', vec2(-0.1, 200), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 62)
+  ui.childWindow('acs_skin_list', vec2(-0.1, listHeight), false, function()
     for i, s in ipairs(skinState.skins) do
       local buttonPos = ui.getCursor()
-      local label = '       ' .. s.label .. '##skin_' .. s.id
+      local label = '          ' .. s.label .. '##skin_' .. s.id
       if styledButton(label, vec2(-0.1, 48), skinState.selected == i) then
         skinState.selected = i
       end
-      local previewMin = buttonPos + vec2(5, 2)
-      local previewMax = buttonPos + vec2(63, 46)
+      local previewMin = buttonPos + vec2(4, 1)
+      local previewMax = buttonPos + vec2(72, 47)
       ui.drawImage(s.preview or 'color::30303A', previewMin, previewMax,
-          rgbm.colors.white, vec2(0.08, 0.08), vec2(0.92, 0.92), ui.ImageFit.Fit)
+          rgbm.colors.white, vec2(0.18, 0.18), vec2(0.82, 0.82), ui.ImageFit.Fit)
     end
   end)
   ui.popStyleVar(1)
@@ -1455,7 +1796,8 @@ return function()
   local needle = string.lower(mapvote.filter or '')
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  ui.childWindow('acs_map_list', vec2(-0.1, 230), false, function()
+  local listHeight = math.max(120, ui.availableSpaceY() - 160)
+  ui.childWindow('acs_map_list', vec2(-0.1, listHeight), false, function()
     local shown = 0
     for _, e in ipairs(mapvote.tracks) do
       if needle == '' or string.find(string.lower(e.name), needle, 1, true) then
@@ -1547,7 +1889,9 @@ function M.bigText(text, size, color)
 end
 
 function M.smallText(text, color)
-  ui.textColored(text, color or C.dim)
+  ui.pushStyleColor(ui.StyleColor.Text, color or C.dim)
+  ui.textWrapped(text)
+  ui.popStyleColor(1)
 end
 
 -- Boton con estilo (selected = resaltado con el color de acento)
@@ -1649,12 +1993,13 @@ end
 -- ===== punto de entrada (src/main.lua) =====
 __modules['__main'] = function()
 -- Punto de entrada: engancha los callbacks de CSP. Aqui no hay logica propia.
-local CONFIG = import('config')
 local core = import('core')
+local I18N = import('i18n')
 local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
+local layouts = import('features/layouts')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
 
@@ -1670,10 +2015,24 @@ function script.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
+  layouts.update(dt, core.state.open and core.state.tab == 'layouts')
 end
 
 function script.drawUI(dt)
-  if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
+  local waitingForToggleKey = core.state.awaitingToggleKey
+  if waitingForToggleKey and core.state.open then
+    local keyName = core.pressedToggleKeyName()
+    if keyName then
+      core.state.settings.toggleKeyName = keyName
+      core.state.awaitingToggleKey = false
+      core.persistSettings()
+      core.notify(I18N.get('settings.toggle_key_saved', keyName))
+    end
+  elseif waitingForToggleKey then
+    core.state.awaitingToggleKey = false
+  elseif ui.keyboardButtonPressed(core.toggleKeyIndex(), false) then
+    core.state.open = not core.state.open
+  end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
 end

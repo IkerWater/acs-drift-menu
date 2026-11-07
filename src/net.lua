@@ -18,7 +18,6 @@ function M.serverBaseUrl()
   return string.format('http://%s:%d', host, port)
 end
 
--- [VERIFICAR] firma de web.get y forma del callback (err, response) en tu version de CSP.
 function M.getJson(path, callback)
   local ok, err = pcall(function()
     web.get(M.serverBaseUrl() .. path, function(e, response)
