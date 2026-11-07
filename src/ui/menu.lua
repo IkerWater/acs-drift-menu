@@ -21,6 +21,11 @@ local TABS = {
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
+  -- Solo administradores (el servidor rechaza las acciones del resto)
+  { id = 'ghost',    label = 'tab.ghost',    height = 700, draw = import('ui/tabs/ghost'),
+    visible = function()
+      return admin.data.isAdmin
+    end },
 }
 
 local M = {}
