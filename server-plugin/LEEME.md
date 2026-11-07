@@ -92,6 +92,28 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 
 ## Cambios
 
+### 2026-11-07: fantasma (pasada grabada), solo administradores
+- Nuevos archivos: `GhostFile.cs` (formato de pasada), `GhostRecorder.cs`, `GhostService.cs` (grabación,
+  reproducción y reserva de plaza), `GhostSlotFilter.cs` (impide que un jugador entre en esa plaza),
+  `GhostCommandModule.cs` (comandos de chat) y `GhostController.cs` (`GET /ghost/list`, `GET /ghost/status`).
+- Un solo fantasma a la vez: cargar otro sobrescribe el anterior. Todas las acciones son de administrador
+  (se comprueba `IsAdministrator` en el servidor, también en el evento online).
+- Eventos online: `ACP_GhostAction` (cliente → servidor: `action` 1 grabar, 2 parar y guardar, 3 cancelar,
+  4 cargar `id`, 5 quitar, 6 borrar `id`) y `ACP_GhostState` (servidor → quien pregunta: `state` 0 libre,
+  1 grabando, 2 guardada, 3 error; `seconds`, `code`, `id`). Códigos de error: 1 no admin, 2 sin coche,
+  3 ya se graba, 4 pasada demasiado corta, 5 sin plaza libre del modelo, 6 no existe, 7 no se graba nada.
+- Comandos: `/ghostrec`, `/ghoststop`, `/ghostcancel`, `/ghostlist`, `/ghostplay <id>`, `/ghostclear`,
+  `/ghostdelete <id>`.
+- Pasadas en `cfg/ghosts/<circuito>/<layout>/<id>.json` + `<id>.ghost` (60 bytes por muestra).
+- Configuración nueva en `plugin_map_vote_cfg.yml`: `GhostsFolder`, `GhostMaxRecordSeconds`,
+  `GhostLoopGapSeconds`, `GhostPlaybackHz`.
+- `MapVoteConfiguration` y `AcsDriftServerPlugin.CurrentTrack` (ahora `TrackOf`, estático) son los únicos
+  cambios en código existente, además del registro en `AcsDriftServerModule`.
+- **Sin compilar ni probar todavía.** Pendiente de validar: la unidad de `Rotation` (`AngleWrap`), el
+  timestamp que ve el cliente (se calcula como en `EntryCar.GetPositionUpdateForCar`), la cadencia real con
+  `Task.Delay` (no es un temporizador de precisión) y la comprobación de que nadie aparezca encima del fantasma
+  al reaparecer (todavía no se hace).
+
 ### 2026-11-02 (d): desconexión de clientes al cambiar de preset
 - Al terminar la cuenta atrás, se envían a cada jugador los paquetes de aviso/expulsión usando su `SessionId`
   individual. El aviso indica la cuenta atrás total; tras mostrar la pantalla de expulsión durante dos segundos

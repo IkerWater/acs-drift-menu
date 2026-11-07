@@ -5,8 +5,10 @@ local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
+local ghost = import('features/ghost')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
+local ghostHud = import('ui/ghost_hud')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -20,10 +22,12 @@ function script.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
+  ghost.update(dt, core.state.open and core.state.tab == 'ghost')
 end
 
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
+  ghostHud.draw()
 end

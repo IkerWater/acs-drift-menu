@@ -34,6 +34,18 @@ public class MapVoteConfiguration : IValidateConfiguration<MapVoteConfigurationV
 
     [YamlMember(Description = "Track folders to exclude from the list")]
     public List<string> ExcludeTracks { get; init; } = [];
+
+    [YamlMember(Description = "Folder where ghost laps are saved (relative to the server folder), one subfolder per track and layout")]
+    public string GhostsFolder { get; init; } = "cfg/ghosts";
+
+    [YamlMember(Description = "Maximum length of a recorded ghost lap in seconds")]
+    public int GhostMaxRecordSeconds { get; init; } = 600;
+
+    [YamlMember(Description = "Seconds the ghost waits at the start line between laps")]
+    public int GhostLoopGapSeconds { get; init; } = 3;
+
+    [YamlMember(Description = "How many times per second the ghost position is sent to the clients (10-100)")]
+    public int GhostPlaybackHz { get; init; } = 40;
 }
 
 public class MapVoteConfigurationValidator : AbstractValidator<MapVoteConfiguration>
@@ -45,5 +57,9 @@ public class MapVoteConfigurationValidator : AbstractValidator<MapVoteConfigurat
         RuleFor(x => x.ChangeDelaySeconds).GreaterThanOrEqualTo(0);
         RuleFor(x => x.TransitionSeconds).GreaterThanOrEqualTo(2);
         RuleFor(x => x.TracksFolder).NotEmpty();
+        RuleFor(x => x.GhostsFolder).NotEmpty();
+        RuleFor(x => x.GhostMaxRecordSeconds).InclusiveBetween(10, 3600);
+        RuleFor(x => x.GhostLoopGapSeconds).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.GhostPlaybackHz).InclusiveBetween(10, 100);
     }
 }

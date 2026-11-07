@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-02 15:47).
+-- GENERADO EL (2026-11-07 16:13).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla M: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -256,6 +256,169 @@ function M.changeCar(carID)
   return core.safe(I18N.get('car.change_error'), function()
     ac.reconnectTo(params)
   end, I18N.get('common.unavailable'))
+end
+
+return M
+end
+
+-- ===== modulo: features/ghost (src/features/ghost.lua) =====
+__modules['features/ghost'] = function()
+-- Fantasma: grabar una pasada y reproducirla contra el resto (servidor: GhostService).
+-- Solo administradores. Las acciones van por evento online (van atadas a la conexion) y la
+-- lista y el estado se leen por HTTP. El estado de grabacion lo marca el ultimo ACP_GhostState
+-- y se revisa contra /ghost/status, porque el servidor no avisa si el jugador se va a mitad.
+local core = import('core')
+local net = import('net')
+local admin = import('features/admin')
+local I18N = import('i18n')
+
+local M = {}
+
+local actionEvent = ac.OnlineEvent({
+  ac.StructItem.key('ACP_GhostAction'),
+  action = ac.StructItem.uint8(),
+  id = ac.StructItem.uint16(),
+})
+
+-- Respuestas del servidor (solo a quien pidio la accion)
+ac.OnlineEvent({
+  ac.StructItem.key('ACP_GhostState'),
+  state = ac.StructItem.uint8(),
+  seconds = ac.StructItem.uint16(),
+  code = ac.StructItem.uint8(),
+  id = ac.StructItem.uint16(),
+}, function(sender, message)
+  if sender ~= nil then return end -- solo mensajes del propio servidor
+  M.onServerState(message)
+end)
+
+-- Estado que lee la UI
+local ghost = {
+  list = {}, listState = 'idle',  -- idle | loading | ok | error
+  listError = nil,
+  status = nil, statusError = nil,
+  recording = false, recStartedAt = 0,
+  pollTimer = 0, statusTimer = 0,
+  selected = nil, confirmDelete = nil,
+  recButton = ac.ControlButton('__ACS_DRIFT_GHOST_REC'),
+}
+M.data = ghost
+
+function M.formatTime(seconds)
+  -- LuaJIT (Lua 5.1): sin operador //
+  seconds = math.max(0, math.floor(seconds or 0))
+  return string.format('%d:%02d', math.floor(seconds / 60), seconds % 60)
+end
+
+function M.recSeconds()
+  if not ghost.recording then return 0 end
+  return os.clock() - ghost.recStartedAt
+end
+
+local function durationText(ms)
+  return M.formatTime((ms or 0) / 1000)
+end
+M.durationText = durationText
+
+-- ------------------------------------------------------------------ lectura (HTTP)
+function M.refreshList()
+  ghost.listState = 'loading'
+  net.getJson('/ghost/list', function(data, err)
+    if data then
+      ghost.list, ghost.listState, ghost.listError = data, 'ok', nil
+    else
+      ghost.listState, ghost.listError = 'error', tostring(err)
+      core.notify(I18N.get('ghost.list_error', ghost.listError))
+    end
+  end)
+end
+
+function M.refreshStatus()
+  net.getJson('/ghost/status', function(data, err)
+    if not data then
+      ghost.statusError = tostring(err)
+      return
+    end
+    ghost.status, ghost.statusError = data, nil
+
+    if data.recording and not ghost.recording then
+      -- Grabacion ya en marcha (p.ej. se reabrio el menu): seguir el contador del servidor.
+      ghost.recording = true
+      ghost.recStartedAt = os.clock() - (data.recordingSeconds or 0)
+    elseif ghost.recording and not data.recording and os.clock() - ghost.recStartedAt > 3 then
+      -- El servidor ya no graba (se fue el jugador o llego al maximo). Margen de 3 s por las peticiones en vuelo.
+      ghost.recording = false
+    end
+  end)
+end
+
+function M.retry()
+  M.refreshList()
+  M.refreshStatus()
+end
+
+-- ------------------------------------------------------------------ acciones (evento online)
+local function send(action, id)
+  local ok, err = pcall(function()
+    actionEvent({ action = action, id = id or 0 })
+  end)
+  if not ok then
+    core.notify(I18N.get('ghost.action_error', tostring(err)))
+    ac.log('[ACS Menu] Ghost action failed: ' .. tostring(err))
+    return false
+  end
+  ghost.statusTimer = 0.5 -- confirmar el estado enseguida
+  return true
+end
+
+function M.startRecording() return send(1) end
+function M.stopRecording() return send(2) end
+function M.cancelRecording() return send(3) end
+function M.load(id) return send(4, id) end
+function M.unload() return send(5) end
+
+function M.delete(id)
+  if ghost.confirmDelete ~= id then
+    ghost.confirmDelete = id -- primer clic: pedir confirmacion
+    return false
+  end
+  ghost.confirmDelete = nil
+  return send(6, id)
+end
+
+-- Respuesta del servidor (ACP_GhostState)
+function M.onServerState(message)
+  if message.state == 1 then
+    ghost.recording = true
+    ghost.recStartedAt = os.clock()
+  elseif message.state == 2 then
+    ghost.recording = false
+    core.notify(I18N.get('ghost.saved', durationText(message.seconds * 1000)))
+    ghost.listState = 'idle' -- que se recargue la lista con la pasada nueva
+  elseif message.state == 0 then
+    ghost.recording = false
+    ghost.listState = 'idle' -- puede haberse borrado o cargado una pasada
+    ghost.statusTimer = 0
+  elseif message.state == 3 then
+    ghost.recording = false
+    core.notify(I18N.get('ghost.err.' .. tostring(message.code)))
+  end
+end
+
+-- ------------------------------------------------------------------ bucle
+-- tabActive: la pestana Fantasma esta abierta (decide que se consulta).
+function M.update(dt, tabActive)
+  if ghost.recButton:pressed() and admin.data.isAdmin then
+    if ghost.recording then M.stopRecording() else M.startRecording() end
+  end
+
+  if tabActive and ghost.listState == 'idle' then M.refreshList() end
+
+  ghost.statusTimer = ghost.statusTimer - dt
+  if ghost.statusTimer <= 0 then
+    ghost.statusTimer = 2
+    if tabActive or ghost.recording then M.refreshStatus() end
+  end
 end
 
 return M
@@ -642,6 +805,37 @@ local strings = {
     ['admin.preset_apply'] = 'CHANGE PRESET & RESTART',
     ['admin.preset_sent'] = 'Preset change requested. The server will announce the restart.',
     ['admin.preset_send_error'] = 'Could not request preset change: %s',
+    ['tab.ghost'] = 'Ghost',
+    ['ghost.record_title'] = 'Record a lap',
+    ['ghost.record_hint'] = 'Drive one clean lap. The key below also starts and stops it with the menu closed.',
+    ['ghost.start'] = 'START RECORDING',
+    ['ghost.stop'] = 'STOP & SAVE',
+    ['ghost.cancel'] = 'CANCEL',
+    ['ghost.recording'] = 'Recording: %s',
+    ['ghost.button_title'] = 'Record / stop key',
+    ['ghost.button_hint'] = 'Assign a key or button to start and stop a recording without opening the menu.',
+    ['ghost.active_title'] = 'Loaded ghost',
+    ['ghost.active'] = '%s · %s · %s',
+    ['ghost.none'] = 'No ghost loaded. Load a saved lap to race against it.',
+    ['ghost.unload'] = 'REMOVE GHOST',
+    ['ghost.saved_title'] = 'Saved laps (this track)',
+    ['ghost.empty'] = 'No saved laps for this track and layout yet.',
+    ['ghost.loaded'] = 'loaded',
+    ['ghost.load'] = 'LOAD',
+    ['ghost.delete'] = 'DELETE',
+    ['ghost.confirm_delete'] = 'CONFIRM DELETE',
+    ['ghost.reload'] = 'Reload list',
+    ['ghost.list_error'] = 'Saved laps: %s',
+    ['ghost.action_error'] = 'Could not send ghost action: %s',
+    ['ghost.saved'] = 'Lap saved (%s). Load it to race against it.',
+    ['ghost.hud_rec'] = 'REC %s',
+    ['ghost.err.1'] = 'Ghosts are for administrators only.',
+    ['ghost.err.2'] = 'Connect with a car before recording.',
+    ['ghost.err.3'] = 'A lap is already being recorded.',
+    ['ghost.err.4'] = 'That lap is too short to save.',
+    ['ghost.err.5'] = 'No free slot for that car on the server. Free one first.',
+    ['ghost.err.6'] = 'That lap no longer exists on this track.',
+    ['ghost.err.7'] = 'Nothing is being recorded.',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -750,6 +944,37 @@ local strings = {
     ['admin.preset_apply'] = 'CAMBIAR PRESET Y REINICIAR',
     ['admin.preset_sent'] = 'Solicitud enviada. El servidor avisara del reinicio.',
     ['admin.preset_send_error'] = 'No se pudo solicitar el cambio de preset: %s',
+    ['tab.ghost'] = 'Fantasma',
+    ['ghost.record_title'] = 'Grabar una vuelta',
+    ['ghost.record_hint'] = 'Haz una vuelta limpia. La tecla de abajo también la inicia y la para con el menú cerrado.',
+    ['ghost.start'] = 'GRABAR',
+    ['ghost.stop'] = 'PARAR Y GUARDAR',
+    ['ghost.cancel'] = 'CANCELAR',
+    ['ghost.recording'] = 'Grabando: %s',
+    ['ghost.button_title'] = 'Tecla de grabar / parar',
+    ['ghost.button_hint'] = 'Asigna una tecla o botón para iniciar y parar una grabación sin abrir el menú.',
+    ['ghost.active_title'] = 'Fantasma cargado',
+    ['ghost.active'] = '%s · %s · %s',
+    ['ghost.none'] = 'No hay fantasma cargado. Carga una vuelta guardada para correr contra ella.',
+    ['ghost.unload'] = 'QUITAR FANTASMA',
+    ['ghost.saved_title'] = 'Vueltas guardadas (este circuito)',
+    ['ghost.empty'] = 'Todavía no hay vueltas guardadas en este circuito y layout.',
+    ['ghost.loaded'] = 'cargado',
+    ['ghost.load'] = 'CARGAR',
+    ['ghost.delete'] = 'BORRAR',
+    ['ghost.confirm_delete'] = 'CONFIRMAR BORRADO',
+    ['ghost.reload'] = 'Recargar lista',
+    ['ghost.list_error'] = 'Vueltas guardadas: %s',
+    ['ghost.action_error'] = 'No se pudo enviar la acción del fantasma: %s',
+    ['ghost.saved'] = 'Vuelta guardada (%s). Cárgala para correr contra ella.',
+    ['ghost.hud_rec'] = 'REC %s',
+    ['ghost.err.1'] = 'Los fantasmas son solo para administradores.',
+    ['ghost.err.2'] = 'Conéctate con un coche antes de grabar.',
+    ['ghost.err.3'] = 'Ya se está grabando una vuelta.',
+    ['ghost.err.4'] = 'Esa vuelta es demasiado corta para guardarla.',
+    ['ghost.err.5'] = 'No hay plaza libre de ese coche en el servidor. Libera una primero.',
+    ['ghost.err.6'] = 'Esa vuelta ya no existe en este circuito.',
+    ['ghost.err.7'] = 'No se está grabando nada.',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -811,6 +1036,50 @@ end
 return M
 end
 
+-- ===== modulo: ui/ghost_hud (src/ui/ghost_hud.lua) =====
+__modules['ui/ghost_hud'] = function()
+-- Indicador "REC mm:ss" mientras se graba una pasada (se ve aunque el menu este cerrado).
+local ghost = import('features/ghost')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C = T.C
+
+local M = {}
+
+local function screenSize()
+  local ok, info = pcall(ac.getUI)
+  if ok and info and info.windowSize and info.windowSize.x > 0 then
+    return info.windowSize.x, info.windowSize.y
+  end
+  return 1920, 1080
+end
+
+function M.draw()
+  if not ghost.data.recording then return end
+
+  local screenWidth = screenSize()
+  local width, height = 180, 44
+  -- centrado arriba, donde no estorba al cuentakilometros
+  local position = vec2(math.max(0, (screenWidth - width) / 2), 16)
+
+  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.Border, rgbm(1, 0.25, 0.25, 0.9))
+  ui.pushStyleVar(ui.StyleVar.WindowRounding, 12)
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(12, 8))
+  ui.toolWindow('acs_menu/ghost_rec', position, vec2(width, height), false, true, function()
+    ui.pushStyleColor(ui.StyleColor.Text, rgbm(1, 0.35, 0.35, 1))
+    ui.pushFont(ui.Font.Title)
+    ui.text(I18N.get('ghost.hud_rec', ghost.formatTime(ghost.recSeconds())))
+    ui.popFont()
+    ui.popStyleColor(1)
+  end)
+  ui.popStyleVar(2)
+  ui.popStyleColor(2)
+end
+
+return M
+end
+
 -- ===== modulo: ui/menu (src/ui/menu.lua) =====
 __modules['ui/menu'] = function()
 -- Ventana principal: cabecera, pestanas, barra de estado y pie.
@@ -833,6 +1102,11 @@ local TABS = {
   { id = 'admin',    label = 'tab.admin',    height = 620, draw = import('ui/tabs/admin'),
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
+    end },
+  -- Solo administradores (el servidor rechaza las acciones del resto)
+  { id = 'ghost',    label = 'tab.ghost',    height = 700, draw = import('ui/tabs/ghost'),
+    visible = function()
+      return admin.data.isAdmin
     end },
 }
 
@@ -1172,6 +1446,111 @@ return function()
   elseif not selected then
     smallText(I18N.get('car.choose'))
   end
+end
+end
+
+-- ===== modulo: ui/tabs/ghost (src/ui/tabs/ghost.lua) =====
+__modules['ui/tabs/ghost'] = function()
+-- Pestana: fantasma (grabar una pasada, cargarla o quitarla y gestionar las guardadas).
+local ghost = import('features/ghost')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
+
+local data = ghost.data
+
+return function()
+  sectionTitle(I18N.get('tab.ghost'), C.accentHi)
+
+  if data.statusError or data.listState == 'error' then
+    smallText(I18N.get('plugin.connection_warning'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then ghost.retry() end
+    return
+  end
+
+  -- Grabacion
+  sectionTitle(I18N.get('ghost.record_title'), C.accentHi)
+  if data.recording then
+    smallText(I18N.get('ghost.recording', ghost.formatTime(ghost.recSeconds())), C.accentHi)
+    ui.dummy(vec2(0, 4))
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('ghost.stop'), vec2(w, 36), true) then ghost.stopRecording() end
+    ui.sameLine(0, 6)
+    if styledButton(I18N.get('ghost.cancel'), vec2(w, 36), false) then ghost.cancelRecording() end
+  else
+    smallText(I18N.get('ghost.record_hint'))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('ghost.start'), vec2(-0.1, 36), true) then ghost.startRecording() end
+  end
+
+  -- Tecla para grabar/parar con el menu cerrado
+  sectionTitle(I18N.get('ghost.button_title'), C.accentHi)
+  smallText(I18N.get('ghost.button_hint'))
+  ui.dummy(vec2(0, 4))
+  data.recButton:control(vec2(ui.availableSpaceX(), 30))
+  ui.dummy(vec2(0, 2))
+  if data.recButton:configured() then
+    smallText(I18N.get('teleport.assigned', tostring(data.recButton:boundTo())), C.accentHi)
+  else
+    smallText(I18N.get('teleport.unassigned'))
+  end
+
+  -- Pasada cargada
+  sectionTitle(I18N.get('ghost.active_title'), C.accentHi)
+  local active = data.status and data.status.ghost
+  if active then
+    smallText(I18N.get('ghost.active', active.author, active.car, ghost.durationText(active.durationMs)))
+    ui.dummy(vec2(0, 4))
+    if styledButton(I18N.get('ghost.unload'), vec2(-0.1, 32), false) then ghost.unload() end
+  else
+    smallText(I18N.get('ghost.none'))
+  end
+
+  -- Pasadas guardadas en este circuito
+  sectionTitle(I18N.get('ghost.saved_title'), C.accentHi)
+  if data.listState == 'loading' and #data.list == 0 then
+    smallText(I18N.get('common.loading'))
+  elseif #data.list == 0 then
+    smallText(I18N.get('ghost.empty'))
+  else
+    local loadedId = active and active.id or nil
+    ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
+    ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
+    ui.childWindow('acs_ghost_list', vec2(-0.1, 170), false, function()
+      for _, g in ipairs(data.list) do
+        local label = string.format('%s  ·  %s  ·  %s', g.author, g.car, ghost.durationText(g.durationMs))
+        if g.id == loadedId then label = label .. '  (' .. I18N.get('ghost.loaded') .. ')' end
+        if styledButton(label .. '##ghost_' .. g.id, vec2(-0.1, 30), data.selected == g.id) then
+          data.selected = g.id
+          data.confirmDelete = nil
+        end
+      end
+    end)
+    ui.popStyleVar(1)
+    ui.popStyleColor(1)
+
+    local selected
+    for _, g in ipairs(data.list) do
+      if g.id == data.selected then selected = g end
+    end
+
+    ui.dummy(vec2(0, 6))
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('ghost.load'), vec2(w, 34), true,
+        selected == nil or selected.id == loadedId) then
+      ghost.load(selected.id)
+    end
+    ui.sameLine(0, 6)
+    local confirming = selected ~= nil and data.confirmDelete == selected.id
+    local deleteLabel = confirming and I18N.get('ghost.confirm_delete') or I18N.get('ghost.delete')
+    if styledButton(deleteLabel .. '##ghost_delete', vec2(w, 34), confirming, selected == nil) then
+      ghost.delete(selected.id)
+    end
+  end
+
+  ui.dummy(vec2(0, 6))
+  if styledButton(I18N.get('ghost.reload'), vec2(-0.1, 26), false) then ghost.refreshList() end
 end
 end
 
@@ -1655,8 +2034,10 @@ local teleport = import('features/teleport')
 local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
+local ghost = import('features/ghost')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
+local ghostHud = import('ui/ghost_hud')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -1670,12 +2051,14 @@ function script.update(dt)
   mapvote.update(dt, core.state.open and core.state.tab == 'track')
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
+  ghost.update(dt, core.state.open and core.state.tab == 'ghost')
 end
 
 function script.drawUI(dt)
   if ui.keyboardButtonPressed(CONFIG.toggleKey, false) then core.state.open = not core.state.open end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
+  ghostHud.draw()
 end
 end
 import('__main')

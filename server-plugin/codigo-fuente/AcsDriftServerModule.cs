@@ -1,3 +1,4 @@
+using AssettoServer.Server.OpenSlotFilters;
 using AssettoServer.Server.Plugin;
 using Autofac;
 using Microsoft.Extensions.Hosting;
@@ -15,5 +16,8 @@ public class AcsDriftServerModule : AssettoServerModule<MapVoteConfiguration>
         builder.RegisterType<PresetCatalog>().AsSelf().SingleInstance();
         builder.RegisterType<CarCatalog>().AsSelf().SingleInstance();
         builder.RegisterType<AcsDriftServerPlugin>().AsSelf().As<IHostedService>().SingleInstance();
+        // Fantasma: una sola instancia; el filtro reserva su plaza para que nadie entre en ella
+        builder.RegisterType<GhostService>().AsSelf().As<IHostedService>().SingleInstance();
+        builder.RegisterType<GhostSlotFilter>().As<IOpenSlotFilter>();
     }
 }
