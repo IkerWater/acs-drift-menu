@@ -327,6 +327,8 @@ public class GhostService : BackgroundService
 
     private static void Announce(ACTcpClient client, ActiveGhost g)
     {
+        Log.Information("{Tag} Announce slot {Slot} to {Name}, visible={Visible}",
+            Tag, g.Slot.SessionId, client.Name, g.Visible);
         try
         {
             client.SendPacket(new CarConnected
@@ -433,18 +435,20 @@ public class GhostService : BackgroundService
 
         if (elapsed < g.Meta.DurationMs)
         {
-            if (g.Visible != true) Show(g);
+            if (g.Visible != true) Show(g, elapsed);
             SendPose(g, Interpolate(g.Samples, elapsed));
         }
         else if (g.Visible != false)
         {
-            Hide(g);
+            Hide(g, elapsed);
         }
     }
 
     // Aparecer en el punto de inicio: unos paquetes ya ahí y luego se muestra.
-    private void Show(ActiveGhost g)
+    private void Show(ActiveGhost g, long elapsed)
     {
+        Log.Information("{Tag} Show slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
+            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         var first = g.Samples[0];
         for (var i = 0; i < SpawnRepeats; i++) SendPose(g, first);
         SendVisibility(g, CSPCarVisibility.Visible);
@@ -452,8 +456,10 @@ public class GhostService : BackgroundService
     }
 
     // Ocultarlo y mandarlo bajo el circuito para que no quede un obstáculo invisible en la pausa.
-    private void Hide(ActiveGhost g)
+    private void Hide(ActiveGhost g, long elapsed)
     {
+        Log.Information("{Tag} Hide slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
+            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         SendVisibility(g, CSPCarVisibility.Invisible);
         var far = g.Samples[0];
         far.Position = new Vector3(far.Position.X, far.Position.Y - HideDepth, far.Position.Z);
