@@ -29,8 +29,8 @@ public class GhostService : BackgroundService
     }
 
     private const string Tag = "[Ghost]";
-    // A validar: unidades de PositionUpdateIn.Rotation (grados o radianes).
-    private const float AngleWrap = 360f;
+    // La rotación viene en radianes (verificado en 3.ghost: máximo |rot| = 3.134 ≈ π).
+    private const float AngleWrap = 2f * MathF.PI;
     // Profundidad a la que se manda el fantasma mientras está oculto (queda fuera del circuito).
     private const float HideDepth = 1000f;
     // Cuántos paquetes de posición se mandan antes de mostrarlo, para que no aparezca "deslizándose".
@@ -489,9 +489,11 @@ public class GhostService : BackgroundService
                     s.SteerAngle, s.WheelAngle, s.EngineRpm, s.Gear,
                     (CarStatusFlags)s.StatusFlag, s.PerformanceDelta, s.Gas);
                 if (logThis)
-                    Log.Information("{Tag} Pose slot {Slot} to {Name}: seq={Seq} ts={Ts} offset={Offset} pos=({X:F2},{Y:F2},{Z:F2}) phase={Phase} t={T} ms",
+                    Log.Information("{Tag} Pose slot {Slot} to {Name}: seq={Seq} ts={Ts} offset={Offset} pos=({X:F2},{Y:F2},{Z:F2}) vel=({VX:F2},{VY:F2},{VZ:F2}) rot=({RX:F3},{RY:F3},{RZ:F3}) phase={Phase} t={T} ms",
                         Tag, g.Slot.SessionId, client.Name, seq, timestamp, offset,
                         s.Position.X, s.Position.Y, s.Position.Z,
+                        s.Velocity.X, s.Velocity.Y, s.Velocity.Z,
+                        s.Rotation.X, s.Rotation.Y, s.Rotation.Z,
                         g.Visible == true ? "visible" : "hidden", s.TimeMs);
                 client.SendPacketUdp(in packet);
             }
