@@ -57,6 +57,7 @@ public class GhostService : BackgroundService
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
     private readonly EntryCarManager _entryCarManager;
+    private readonly SessionManager _sessionManager;
 
     private readonly object _lock = new();
     private GhostRecorder? _recorder;
@@ -71,11 +72,13 @@ public class GhostService : BackgroundService
     public GhostService(MapVoteConfiguration config,
         ACServerConfiguration serverConfig,
         EntryCarManager entryCarManager,
+        SessionManager sessionManager,
         CSPClientMessageTypeManager clientMessageTypeManager)
     {
         _config = config;
         _serverConfig = serverConfig;
         _entryCarManager = entryCarManager;
+        _sessionManager = sessionManager;
 
         if (serverConfig.Extra.EnableClientMessages)
             clientMessageTypeManager.RegisterOnlineEvent<GhostActionPacket>(OnAction);
@@ -474,7 +477,10 @@ public class GhostService : BackgroundService
     private void SendPose(ActiveGhost g, GhostSample s)
     {
         var seq = _pakSequence++;
-        var now = Environment.TickCount64;
+        // Reloj del servidor de AssettoServer (cronómetro desde que arrancó el servidor), el mismo con el
+        // que se calcula TimeOffset. No usar Environment.TickCount64: cuenta desde que arrancó la máquina
+        // y los paquetes llegaban con días de adelanto, así que el cliente extrapolaba la posición a 1e12 m.
+        var now = _sessionManager.ServerTimeMilliseconds;
         // Diagnóstico: como mucho un registro por segundo y fantasma
         var logThis = now - g.LastPoseLogMs >= 1000;
         if (logThis) g.LastPoseLogMs = now;
@@ -482,7 +488,7 @@ public class GhostService : BackgroundService
         {
             try
             {
-                // Mismo cálculo que EntryCar.GetPositionUpdateForCar: timestamp del servidor menos el offset del receptor.
+                // Igual que la IA en EntryCar.GetPositionUpdateForCar: ServerTimeMilliseconds menos el offset del receptor.
                 var offset = CarOf(client)?.TimeOffset ?? 0;
                 var timestamp = unchecked((uint)(now - offset));
 
