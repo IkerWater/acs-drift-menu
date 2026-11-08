@@ -26,6 +26,8 @@ public class GhostService : BackgroundService
         public bool? Visible { get; set; }
         // Último instante (TickCount64) en que se registró un paquete de posición (diagnóstico)
         public long LastPoseLogMs { get; set; }
+        // Último timestamp enviado a cada cliente (diagnóstico de saltos)
+        public Dictionary<ACTcpClient, uint> LastTimestamp { get; } = new();
     }
 
     private const string Tag = "[Ghost]";
@@ -483,6 +485,18 @@ public class GhostService : BackgroundService
                 // Mismo cálculo que EntryCar.GetPositionUpdateForCar: timestamp del servidor menos el offset del receptor.
                 var offset = CarOf(client)?.TimeOffset ?? 0;
                 var timestamp = unchecked((uint)(now - offset));
+
+                // Diagnóstico: el cliente integra la posición con la diferencia entre timestamps.
+                // Avisar cuando vaya hacia atrás o salte más de 100 ms entre paquetes.
+                if (g.LastTimestamp.TryGetValue(client, out var prevTs))
+                {
+                    var dt = unchecked((int)(timestamp - prevTs));
+                    if (dt < 0 || dt > 100)
+                        Log.Warning("{Tag} Timestamp anomalo slot {Slot} to {Name}: prev={Prev} now={Ts} dt={Dt} ms",
+                            Tag, g.Slot.SessionId, client.Name, prevTs, timestamp, dt);
+                }
+                g.LastTimestamp[client] = timestamp;
+
                 var packet = new PositionUpdateOut(g.Slot.SessionId, seq, timestamp, 0,
                     s.Position, s.Rotation, s.Velocity,
                     s.TyreFL, s.TyreFR, s.TyreRL, s.TyreRR,
