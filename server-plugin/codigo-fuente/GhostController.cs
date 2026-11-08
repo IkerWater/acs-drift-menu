@@ -32,4 +32,9 @@ public class GhostController : ControllerBase
 
     [HttpGet("status")]
     public IActionResult Status() => Ok(_ghosts.GetStatus());
+
+#if MAPVOTE_TEST
+    [HttpPost("test/make")]
+    public IActionResult TestMake() => Ok(_ghosts.TestMakeAndLoad());
+#endif
 }

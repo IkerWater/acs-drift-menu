@@ -22,17 +22,26 @@ public class GhostService : BackgroundService
         public required GhostSample[] Samples { get; init; }
         public required EntryCar Slot { get; init; }
         public required long StartTick { get; init; }
+        // Vuelta completa de los ángulos de esta pasada: 2π si vienen en radianes, 360 si en grados
+        public float AngleWrap { get; init; } = MathF.Tau;
         // null = todavía no se ha enviado la visibilidad a los clientes
         public bool? Visible { get; set; }
-        // Último instante (TickCount64) en que se registró un paquete de posición (diagnóstico)
+        // Último instante (reloj del servidor) en que se registró un paquete de posición (diagnóstico)
         public long LastPoseLogMs { get; set; }
         // Último timestamp enviado a cada cliente (diagnóstico de saltos)
         public Dictionary<ACTcpClient, uint> LastTimestamp { get; } = new();
     }
 
     private const string Tag = "[Ghost]";
-    // La rotación viene en radianes (verificado en 3.ghost: máximo |rot| = 3.134 ≈ π).
-    private const float AngleWrap = 2f * MathF.PI;
+    // No está confirmado si PositionUpdateIn.Rotation viene en radianes o en grados: se deduce de cada pasada
+    // (WrapFor). El colega verificó en una pasada real que son radianes (máx. |rot| = 3.134 ≈ π). Con la vuelta equivocada, al cruzar ±π el coche daría una vuelta entera de golpe.
+    internal static float WrapFor(GhostSample[] samples)
+    {
+        var max = 0f;
+        foreach (var x in samples)
+            max = MathF.Max(max, MathF.Max(MathF.Abs(x.Rotation.X), MathF.Max(MathF.Abs(x.Rotation.Y), MathF.Abs(x.Rotation.Z))));
+        return max <= 7f ? MathF.Tau : 360f;
+    }
     // Profundidad a la que se manda el fantasma mientras está oculto (queda fuera del circuito).
     private const float HideDepth = 1000f;
     // Cuántos paquetes de posición se mandan antes de mostrarlo, para que no aparezca "deslizándose".
@@ -265,7 +274,8 @@ public class GhostService : BackgroundService
                 Meta = meta,
                 Samples = samples,
                 Slot = slot,
-                StartTick = Environment.TickCount64
+                StartTick = Environment.TickCount64,
+                AngleWrap = WrapFor(samples)
             };
             foreach (var c in ConnectedClients())
             {
@@ -352,6 +362,34 @@ public class GhostService : BackgroundService
         }
         catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not announce ghost to {Name}", client.Name); }
     }
+
+#if MAPVOTE_TEST
+    // Solo pruebas: crea una pasada sintética (un círculo de 20 s) con el primer modelo del entry list y la carga.
+    internal object TestMakeAndLoad()
+    {
+        lock (_lock)
+        {
+            var model = _entryCarManager.EntryCars.First(c => !c.AiControlled).Model;
+            var samples = new GhostSample[400];
+            for (var i = 0; i < samples.Length; i++)
+            {
+                var a = i * 0.05f;
+                samples[i] = new GhostSample { TimeMs = (uint)(i * 50), Position = new Vector3(MathF.Cos(a) * 50, 0, MathF.Sin(a) * 50),
+                    Rotation = new Vector3(a * 57.3f % 360f, 0, 0), Velocity = new Vector3(-MathF.Sin(a) * 50, 0, MathF.Cos(a) * 50), EngineRpm = 5000, Gear = 3 };
+            }
+            var meta = GhostFile.Save(CurrentFolder(), new GhostMeta { Name = "test", Car = model, Author = "test", DurationMs = 19950, Created = DateTime.UtcNow }, samples);
+            var loaded = GhostFile.Load(CurrentFolder(), meta.Id)!.Value;
+            var slot = FindFreeSlot(loaded.Meta.Car);
+            if (slot == null) return new { error = "sin plaza" };
+            ReleaseLocked();
+            _active = new ActiveGhost { Meta = loaded.Meta, Samples = loaded.Samples, Slot = slot, StartTick = Environment.TickCount64, AngleWrap = WrapFor(loaded.Samples) };
+            // comprobación del ángulo: de 3.1 a -3.1 rad, a mitad de camino tiene que salir ±π, no 0
+            var t2 = new[] { new GhostSample { TimeMs = 0, Rotation = new Vector3(3.1f, 0, 0) }, new GhostSample { TimeMs = 100, Rotation = new Vector3(-3.1f, 0, 0) } };
+            var mid = Interpolate(t2, 50, WrapFor(t2)).Rotation.X;
+            return new { id = meta.Id, slot = slot.SessionId, samples = loaded.Samples.Length, folder = CurrentFolder(), wrap = WrapFor(loaded.Samples), radMid = mid };
+        }
+    }
+#endif
 
     // ------------------------------------------------------------------ estado para el menú (HTTP)
     internal object GetStatus()
@@ -443,7 +481,7 @@ public class GhostService : BackgroundService
         if (elapsed < g.Meta.DurationMs)
         {
             if (g.Visible != true) Show(g, elapsed);
-            SendPose(g, Interpolate(g.Samples, elapsed));
+            SendPose(g, Interpolate(g.Samples, elapsed, g.AngleWrap));
         }
         else if (g.Visible != false)
         {
@@ -502,7 +540,6 @@ public class GhostService : BackgroundService
                             Tag, g.Slot.SessionId, client.Name, prevTs, timestamp, dt);
                 }
                 g.LastTimestamp[client] = timestamp;
-
                 var packet = new PositionUpdateOut(g.Slot.SessionId, seq, timestamp, 0,
                     s.Position, s.Rotation, s.Velocity,
                     s.TyreFL, s.TyreFR, s.TyreRL, s.TyreRR,
@@ -533,7 +570,7 @@ public class GhostService : BackgroundService
     // ------------------------------------------------------------------ interpolación
     // Posición con Hermite (usa la velocidad grabada); resto lineal. Los campos discretos
     // (marcha, flags, delta de rendimiento) se toman de la muestra anterior.
-    private static GhostSample Interpolate(GhostSample[] s, double t)
+    internal static GhostSample Interpolate(GhostSample[] s, double t, float wrap)
     {
         var lo = 0;
         var hi = s.Length - 1;
@@ -562,9 +599,9 @@ public class GhostService : BackgroundService
             Position = Hermite(a.Position, m0, b.Position, m1, u),
             Velocity = Vector3.Lerp(a.Velocity, b.Velocity, u),
             Rotation = new Vector3(
-                LerpAngle(a.Rotation.X, b.Rotation.X, u),
-                LerpAngle(a.Rotation.Y, b.Rotation.Y, u),
-                LerpAngle(a.Rotation.Z, b.Rotation.Z, u)),
+                LerpAngle(a.Rotation.X, b.Rotation.X, u, wrap),
+                LerpAngle(a.Rotation.Y, b.Rotation.Y, u, wrap),
+                LerpAngle(a.Rotation.Z, b.Rotation.Z, u, wrap)),
             TyreFL = LerpByte(a.TyreFL, b.TyreFL, u),
             TyreFR = LerpByte(a.TyreFR, b.TyreFR, u),
             TyreRL = LerpByte(a.TyreRL, b.TyreRL, u),
@@ -591,11 +628,11 @@ public class GhostService : BackgroundService
         return p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11;
     }
 
-    private static float LerpAngle(float a, float b, float u)
+    private static float LerpAngle(float a, float b, float u, float wrap)
     {
-        // Camino corto: la diferencia se lleva al intervalo [-AngleWrap/2, AngleWrap/2].
+        // Camino corto: la diferencia se lleva al intervalo [-wrap/2, wrap/2].
         var d = b - a;
-        d -= AngleWrap * MathF.Round(d / AngleWrap);
+        d -= wrap * MathF.Round(d / wrap);
         return a + d * u;
     }
 
