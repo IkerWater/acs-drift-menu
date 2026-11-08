@@ -24,6 +24,8 @@ public class GhostService : BackgroundService
         public required long StartTick { get; init; }
         // null = todavía no se ha enviado la visibilidad a los clientes
         public bool? Visible { get; set; }
+        // Último instante (TickCount64) en que se registró un paquete de posición (diagnóstico)
+        public long LastPoseLogMs { get; set; }
     }
 
     private const string Tag = "[Ghost]";
@@ -471,6 +473,9 @@ public class GhostService : BackgroundService
     {
         var seq = _pakSequence++;
         var now = Environment.TickCount64;
+        // Diagnóstico: como mucho un registro por segundo y fantasma
+        var logThis = now - g.LastPoseLogMs >= 1000;
+        if (logThis) g.LastPoseLogMs = now;
         foreach (var client in _announced)
         {
             try
@@ -483,6 +488,11 @@ public class GhostService : BackgroundService
                     s.TyreFL, s.TyreFR, s.TyreRL, s.TyreRR,
                     s.SteerAngle, s.WheelAngle, s.EngineRpm, s.Gear,
                     (CarStatusFlags)s.StatusFlag, s.PerformanceDelta, s.Gas);
+                if (logThis)
+                    Log.Information("{Tag} Pose slot {Slot} to {Name}: seq={Seq} ts={Ts} offset={Offset} pos=({X:F2},{Y:F2},{Z:F2}) phase={Phase} t={T} ms",
+                        Tag, g.Slot.SessionId, client.Name, seq, timestamp, offset,
+                        s.Position.X, s.Position.Y, s.Position.Z,
+                        g.Visible == true ? "visible" : "hidden", s.TimeMs);
                 client.SendPacketUdp(in packet);
             }
             catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not send ghost position to {Name}", client.Name); }
