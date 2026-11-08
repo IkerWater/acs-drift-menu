@@ -161,8 +161,9 @@ function M.debugCar(dt)
       return
     end
     local p = car.position
-    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) speed=%.1f',
-      g.slot, tostring(car.isConnected), p.x, p.y, p.z, car.speedKmh or -1))
+    local v = car.velocity
+    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) vel=(%.2f,%.2f,%.2f) speed=%.1f',
+      g.slot, tostring(car.isConnected), p.x, p.y, p.z, v.x, v.y, v.z, car.speedKmh or -1))
   end)
   if not ok then ac.log('[ACS Ghost debug] error: ' .. tostring(err)) end
 end

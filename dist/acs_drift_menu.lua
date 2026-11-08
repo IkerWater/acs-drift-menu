@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 00:03).
+-- GENERADO EL (2026-11-09 00:38).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -517,8 +517,9 @@ function M.debugCar(dt)
       return
     end
     local p = car.position
-    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) speed=%.1f',
-      g.slot, tostring(car.isConnected), p.x, p.y, p.z, car.speedKmh or -1))
+    local v = car.velocity
+    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) vel=(%.2f,%.2f,%.2f) speed=%.1f',
+      g.slot, tostring(car.isConnected), p.x, p.y, p.z, v.x, v.y, v.z, car.speedKmh or -1))
   end)
   if not ok then ac.log('[ACS Ghost debug] error: ' .. tostring(err)) end
 end
