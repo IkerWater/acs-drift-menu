@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 00:38).
+-- GENERADO EL (2026-11-09 00:56).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
