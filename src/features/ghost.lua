@@ -140,6 +140,33 @@ function M.onServerState(message)
   end
 end
 
+-- ------------------------------------------------------------------ diagnostico (temporal)
+-- Registra cada segundo el coche remoto del fantasma tal como lo ve el cliente.
+-- Quitar DEBUG_GHOST_CAR (y debugCar) cuando termine la prueba.
+local DEBUG_GHOST_CAR = true
+local debugTimer = 0
+
+function M.debugCar(dt)
+  debugTimer = debugTimer - dt
+  if debugTimer > 0 then return end
+  debugTimer = 1
+
+  local g = ghost.status and ghost.status.ghost
+  if not g then return end
+
+  local ok, err = pcall(function()
+    local car = ac.getCar(g.slot)
+    if not car then
+      ac.log(string.format('[ACS Ghost debug] slot=%d: ac.getCar devolvio nil', g.slot))
+      return
+    end
+    local p = car.position
+    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) speed=%.1f',
+      g.slot, tostring(car.isConnected), p.x, p.y, p.z, car.speedKmh or -1))
+  end)
+  if not ok then ac.log('[ACS Ghost debug] error: ' .. tostring(err)) end
+end
+
 -- ------------------------------------------------------------------ bucle
 -- tabActive: la pestana Fantasma esta abierta (decide que se consulta).
 function M.update(dt, tabActive)
@@ -152,8 +179,10 @@ function M.update(dt, tabActive)
   ghost.statusTimer = ghost.statusTimer - dt
   if ghost.statusTimer <= 0 then
     ghost.statusTimer = 2
-    if tabActive or ghost.recording then M.refreshStatus() end
+    if tabActive or ghost.recording or DEBUG_GHOST_CAR then M.refreshStatus() end
   end
+
+  if DEBUG_GHOST_CAR then M.debugCar(dt) end
 end
 
 return M
