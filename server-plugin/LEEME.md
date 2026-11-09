@@ -105,13 +105,25 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 
 ## Cambios
 
+### 2026-11-09: fantasma, confirmar antes de guardar y salida parada de 1 s
+- El timestamp de las posiciones del fantasma usa `SessionManager.ServerTimeMilliseconds` (antes
+  `Environment.TickCount64`, que no coincidía con la base del `TimeOffset` y lanzaba el coche lejísimos).
+- Parar una grabación ya no la guarda: el servidor la recorta y la deja pendiente (`state` 4, `seconds` =
+  duración). Se guarda con `action` 7 (o `/ghostsave`) y se descarta con `action` 8, `/ghostdiscard` o
+  `/ghostcancel`. Código de error nuevo: 8 no hay grabación pendiente. `/ghost/status` añade `pending` y
+  `pendingSeconds`.
+- La pendiente se descarta si su autor se va, a los 5 minutos sin confirmar o al empezar otra grabación.
+  Si el jugador se va a mitad de grabación, ahora se descarta (antes se guardaba).
+- Recorte: se quita la parada inicial (velocidad ≤ 0,5 m/s) y se pone en su lugar exactamente 1 s de coche
+  quieto en la última postura parada (`GhostService.TrimStart`).
+
 ### 2026-11-07: fantasma (pasada grabada), solo administradores
 - Nuevos archivos: `GhostFile.cs` (formato de pasada), `GhostRecorder.cs`, `GhostService.cs` (grabación,
   reproducción y reserva de plaza), `GhostSlotFilter.cs` (impide que un jugador entre en esa plaza),
   `GhostCommandModule.cs` (comandos de chat) y `GhostController.cs` (`GET /ghost/list`, `GET /ghost/status`).
 - Un solo fantasma a la vez: cargar otro sobrescribe el anterior. Todas las acciones son de administrador
   (se comprueba `IsAdministrator` en el servidor, también en el evento online).
-- Eventos online: `ACP_GhostAction` (cliente → servidor: `action` 1 grabar, 2 parar y guardar, 3 cancelar,
+- Eventos online: `ACP_GhostAction` (cliente → servidor: `action` 1 grabar, 2 parar (ver 2026-11-09), 3 cancelar,
   4 cargar `id`, 5 quitar, 6 borrar `id`) y `ACP_GhostState` (servidor → quien pregunta: `state` 0 libre,
   1 grabando, 2 guardada, 3 error; `seconds`, `code`, `id`). Códigos de error: 1 no admin, 2 sin coche,
   3 ya se graba, 4 pasada demasiado corta, 5 sin plaza libre del modelo, 6 no existe, 7 no se graba nada.

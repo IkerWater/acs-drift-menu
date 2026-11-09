@@ -33,6 +33,8 @@ local ghost = {
   listError = nil,
   status = nil, statusError = nil,
   recording = false, recStartedAt = 0,
+  pending = nil, -- { seconds, at } grabacion terminada esperando a guardarse o descartarse
+  pendingClosedAt = -10,
   pollTimer = 0, statusTimer = 0,
   selected = nil, confirmDelete = nil,
   recButton = ac.ControlButton('__ACS_DRIFT_GHOST_REC'),
@@ -84,6 +86,14 @@ function M.refreshStatus()
       -- El servidor ya no graba (se fue el jugador o llego al maximo). Margen de 3 s por las peticiones en vuelo.
       ghost.recording = false
     end
+
+    -- Grabacion pendiente de confirmar: la que diga el servidor (puede haberla resuelto otro admin o caducado).
+    -- Margen de 3 s como arriba, para que una respuesta antigua no cierre la ventana recien abierta.
+    if data.pending then
+      if not ghost.pending and os.clock() - ghost.pendingClosedAt > 3 then ghost.pending = { seconds = data.pendingSeconds or 0, at = os.clock() } end
+    elseif ghost.pending and os.clock() - ghost.pending.at > 3 then
+      ghost.pending = nil
+    end
   end)
 end
 
@@ -111,6 +121,8 @@ function M.stopRecording() return send(2) end
 function M.cancelRecording() return send(3) end
 function M.load(id) return send(4, id) end
 function M.unload() return send(5) end
+function M.savePending() return send(7) end
+function M.discardPending() return send(8) end
 
 function M.delete(id)
   if ghost.confirmDelete ~= id then
@@ -121,57 +133,42 @@ function M.delete(id)
   return send(6, id)
 end
 
+local function closePending()
+  if ghost.pending then ghost.pendingClosedAt = os.clock() end
+  ghost.pending = nil
+end
+
 -- Respuesta del servidor (ACP_GhostState)
 function M.onServerState(message)
   if message.state == 1 then
     ghost.recording = true
     ghost.recStartedAt = os.clock()
+    closePending()
   elseif message.state == 2 then
     ghost.recording = false
+    closePending()
     core.notify(I18N.get('ghost.saved', durationText(message.seconds * 1000)))
     ghost.listState = 'idle' -- que se recargue la lista con la pasada nueva
   elseif message.state == 0 then
     ghost.recording = false
+    closePending()
     ghost.listState = 'idle' -- puede haberse borrado o cargado una pasada
     ghost.statusTimer = 0
   elseif message.state == 3 then
     ghost.recording = false
     core.notify(I18N.get('ghost.err.' .. tostring(message.code)))
+  elseif message.state == 4 then
+    -- Grabacion terminada: se abre la ventana de confirmacion (ui/ghost_confirm)
+    ghost.recording = false
+    ghost.pending = { seconds = message.seconds, at = os.clock() }
   end
-end
-
--- ------------------------------------------------------------------ diagnostico (temporal)
--- Registra cada segundo el coche remoto del fantasma tal como lo ve el cliente.
--- Quitar DEBUG_GHOST_CAR (y debugCar) cuando termine la prueba.
-local DEBUG_GHOST_CAR = true
-local debugTimer = 0
-
-function M.debugCar(dt)
-  debugTimer = debugTimer - dt
-  if debugTimer > 0 then return end
-  debugTimer = 1
-
-  local g = ghost.status and ghost.status.ghost
-  if not g then return end
-
-  local ok, err = pcall(function()
-    local car = ac.getCar(g.slot)
-    if not car then
-      ac.log(string.format('[ACS Ghost debug] slot=%d: ac.getCar devolvio nil', g.slot))
-      return
-    end
-    local p = car.position
-    local v = car.velocity
-    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) vel=(%.2f,%.2f,%.2f) speed=%.1f',
-      g.slot, tostring(car.isConnected), p.x, p.y, p.z, v.x, v.y, v.z, car.speedKmh or -1))
-  end)
-  if not ok then ac.log('[ACS Ghost debug] error: ' .. tostring(err)) end
 end
 
 -- ------------------------------------------------------------------ bucle
 -- tabActive: la pestana Fantasma esta abierta (decide que se consulta).
 function M.update(dt, tabActive)
-  if ghost.recButton:pressed() and admin.data.isAdmin then
+  -- Con una grabacion pendiente la tecla no hace nada: hay que guardarla o descartarla antes.
+  if ghost.recButton:pressed() and admin.data.isAdmin and not ghost.pending then
     if ghost.recording then M.stopRecording() else M.startRecording() end
   end
 
@@ -180,10 +177,8 @@ function M.update(dt, tabActive)
   ghost.statusTimer = ghost.statusTimer - dt
   if ghost.statusTimer <= 0 then
     ghost.statusTimer = 2
-    if tabActive or ghost.recording or DEBUG_GHOST_CAR then M.refreshStatus() end
+    if tabActive or ghost.recording or ghost.pending then M.refreshStatus() end
   end
-
-  if DEBUG_GHOST_CAR then M.debugCar(dt) end
 end
 
 return M

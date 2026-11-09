@@ -26,10 +26,6 @@ public class GhostService : BackgroundService
         public float AngleWrap { get; init; } = MathF.Tau;
         // null = todavía no se ha enviado la visibilidad a los clientes
         public bool? Visible { get; set; }
-        // Último instante (reloj del servidor) en que se registró un paquete de posición (diagnóstico)
-        public long LastPoseLogMs { get; set; }
-        // Último timestamp enviado a cada cliente (diagnóstico de saltos)
-        public Dictionary<ACTcpClient, uint> LastTimestamp { get; } = new();
     }
 
     private const string Tag = "[Ghost]";
@@ -47,12 +43,20 @@ public class GhostService : BackgroundService
     // Cuántos paquetes de posición se mandan antes de mostrarlo, para que no aparezca "deslizándose".
     private const int SpawnRepeats = 3;
     private const int MinSamples = 10;
+    // Por debajo de esta velocidad (m/s) el coche cuenta como parado al recortar el principio.
+    private const float MoveSpeed = 0.5f;
+    // Parada artificial al principio de cada pasada, para dar tiempo a reaccionar a su salida.
+    private const uint LeadInMs = 1000;
+    private const uint LeadInStepMs = 50;
+    // Tiempo que se espera la confirmación de una grabación antes de descartarla.
+    private const long PendingTimeoutMs = 5 * 60 * 1000;
 
     // Estados que recibe el menú (ACP_GhostState.state)
     private const byte StateIdle = 0;
     private const byte StateRecording = 1;
     private const byte StateSaved = 2;
     private const byte StateError = 3;
+    private const byte StatePending = 4; // grabada, esperando a que se guarde o se descarte
 
     // Códigos de error (ACP_GhostState.code)
     private const byte ErrNotAdmin = 1;
@@ -62,6 +66,16 @@ public class GhostService : BackgroundService
     private const byte ErrNoSlot = 5;
     private const byte ErrNotFound = 6;
     private const byte ErrNotRecording = 7;
+    private const byte ErrNoPending = 8;
+
+    /// <summary>Grabación terminada que espera confirmación. No se escribe en disco hasta guardarla.</summary>
+    private sealed class PendingGhost
+    {
+        public required GhostMeta Meta { get; init; }
+        public required GhostSample[] Samples { get; init; }
+        public ACTcpClient? Owner { get; init; }
+        public required long CreatedTick { get; init; }
+    }
 
     private readonly MapVoteConfiguration _config;
     private readonly ACServerConfiguration _serverConfig;
@@ -74,6 +88,7 @@ public class GhostService : BackgroundService
     private ulong _recAuthorGuid;
     private string _recCar = "";
     private string _recSkin = "";
+    private PendingGhost? _pending;
     private ActiveGhost? _active;
     private readonly HashSet<ACTcpClient> _announced = new();
     private byte _pakSequence;
@@ -170,6 +185,8 @@ public class GhostService : BackgroundService
             case 4: Load(client, packet.Id); break;
             case 5: Unload(client); break;
             case 6: Delete(client, packet.Id); break;
+            case 7: SavePending(client); break;
+            case 8: DiscardPending(client); break;
         }
     }
 
@@ -183,6 +200,12 @@ public class GhostService : BackgroundService
 
             var car = CarOf(client);
             if (car == null) { Fail(client, ErrNoCar, "You need to be connected with a car to record a ghost."); return; }
+
+            if (_pending != null)
+            {
+                DiscardPendingLocked(client);
+                Send(client, "The previous unsaved recording was discarded.");
+            }
 
             _recorder = new GhostRecorder(car, _config.GhostMaxRecordSeconds);
             _recAuthor = client.Name ?? "?";
@@ -210,7 +233,13 @@ public class GhostService : BackgroundService
         if (!IsAdmin(client)) return;
         lock (_lock)
         {
-            if (_recorder == null) { Fail(client, ErrNotRecording, "There is no ghost recording in progress."); return; }
+            if (_recorder == null)
+            {
+                // Sin grabación en marcha, cancelar descarta la que espera confirmación.
+                if (_pending != null) { DiscardPendingLocked(client); Send(client, "Ghost recording discarded."); return; }
+                Fail(client, ErrNotRecording, "There is no ghost recording in progress.");
+                return;
+            }
             _recorder.Stop();
             _recorder = null;
             SendState(client, StateIdle, 0, 0, 0);
@@ -218,36 +247,121 @@ public class GhostService : BackgroundService
         }
     }
 
-    // con _lock tomado. notify = a quién mandar el resultado (null = solo aviso en el chat del servidor)
+    // con _lock tomado. Para la grabación y la deja pendiente de confirmar (no se guarda todavía).
+    // notify = quien grabó y tiene que confirmarla.
     private void FinishRecordingLocked(ACTcpClient? notify)
     {
         var recorder = _recorder!;
         _recorder = null;
-        var samples = recorder.Stop();
+        var raw = recorder.Stop();
 
-        if (samples.Length < MinSamples || samples[^1].TimeMs < 1000)
+        // Hace falta al menos 1 s en movimiento, además de la parada inicial.
+        var samples = raw.Length < MinSamples ? null : TrimStart(raw);
+        if (samples == null || samples.Length < MinSamples || samples[^1].TimeMs < LeadInMs + 1000)
         {
             if (notify != null) Fail(notify, ErrTooShort, "The recording is too short to be saved.");
             else Broadcast("Ghost recording discarded: it is too short.");
             return;
         }
 
-        var meta = new GhostMeta
+        _pending = new PendingGhost
         {
-            Name = $"{_recAuthor} - {_recCar}",
-            Car = _recCar,
-            Skin = _recSkin,
-            Author = _recAuthor,
-            AuthorGuid = _recAuthorGuid,
-            DurationMs = (int)samples[^1].TimeMs,
-            Created = DateTime.UtcNow
+            Meta = new GhostMeta
+            {
+                Name = $"{_recAuthor} - {_recCar}",
+                Car = _recCar,
+                Skin = _recSkin,
+                Author = _recAuthor,
+                AuthorGuid = _recAuthorGuid,
+                DurationMs = (int)samples[^1].TimeMs,
+                Created = DateTime.UtcNow
+            },
+            Samples = samples,
+            Owner = notify,
+            CreatedTick = Environment.TickCount64
         };
-        var saved = GhostFile.Save(CurrentFolder(), meta, samples);
-        var seconds = saved.DurationMs / 1000;
 
-        if (notify != null) SendState(notify, StateSaved, seconds, 0, saved.Id);
-        Broadcast($"Ghost saved: {saved.Author} · {saved.Car} · {seconds} s (id {saved.Id}).");
-        Log.Information("ACS Drift Server: ghost {Id} saved ({Car}, {Seconds} s)", saved.Id, saved.Car, seconds);
+        var seconds = _pending.Meta.DurationMs / 1000;
+        if (notify != null)
+        {
+            SendState(notify, StatePending, seconds, 0, 0);
+            Send(notify, $"Ghost recorded ({seconds} s). Save it or discard it from the menu (or /ghostsave, /ghostdiscard).");
+        }
+        Log.Information("ACS Drift Server: ghost recorded by {Name} ({Car}, {Seconds} s, {Raw} -> {Trimmed} samples), waiting for confirmation",
+            _recAuthor, _recCar, seconds, raw.Length, samples.Length);
+    }
+
+    /// <summary>
+    /// Quita la parada del principio y pone en su lugar exactamente LeadInMs de coche quieto en la
+    /// posición de salida. Devuelve null si el coche no llega a moverse.
+    /// </summary>
+    internal static GhostSample[]? TrimStart(GhostSample[] samples)
+    {
+        var move = Array.FindIndex(samples, s => s.Velocity.Length() > MoveSpeed);
+        if (move < 0) return null;
+
+        // Postura de la última muestra parada (no la primera: al empezar el coche puede estar aún asentándose).
+        var hold = samples[Math.Max(0, move - 1)];
+        hold.Velocity = Vector3.Zero;
+        hold.Gas = 0;
+
+        var result = new List<GhostSample>(samples.Length - move + (int)(LeadInMs / LeadInStepMs));
+        for (uint t = 0; t < LeadInMs; t += LeadInStepMs)
+        {
+            var s = hold;
+            s.TimeMs = t;
+            result.Add(s);
+        }
+
+        var tMove = samples[move].TimeMs;
+        for (var i = move; i < samples.Length; i++)
+        {
+            var s = samples[i];
+            s.TimeMs = samples[i].TimeMs - tMove + LeadInMs;
+            result.Add(s);
+        }
+        return result.ToArray();
+    }
+
+    internal void SavePending(ACTcpClient client)
+    {
+        if (!IsAdmin(client)) return;
+        lock (_lock)
+        {
+            if (_pending == null) { Fail(client, ErrNoPending, "There is no recorded ghost waiting to be saved."); return; }
+            var p = _pending;
+            _pending = null;
+
+            var saved = GhostFile.Save(CurrentFolder(), p.Meta, p.Samples);
+            var seconds = saved.DurationMs / 1000;
+
+            SendState(client, StateSaved, seconds, 0, saved.Id);
+            if (p.Owner != null && p.Owner != client) SendState(p.Owner, StateIdle, 0, 0, 0);
+            Broadcast($"Ghost saved: {saved.Author} · {saved.Car} · {seconds} s (id {saved.Id}).");
+            Log.Information("ACS Drift Server: ghost {Id} saved ({Car}, {Seconds} s)", saved.Id, saved.Car, seconds);
+        }
+    }
+
+    internal void DiscardPending(ACTcpClient client)
+    {
+        if (!IsAdmin(client)) return;
+        lock (_lock)
+        {
+            if (_pending == null) { Fail(client, ErrNoPending, "There is no recorded ghost waiting to be saved."); return; }
+            DiscardPendingLocked(client);
+            Send(client, "Ghost recording discarded.");
+        }
+    }
+
+    // con _lock tomado. Avisa a quien lo pidió y al que grabó (si siguen conectados).
+    private void DiscardPendingLocked(ACTcpClient? client)
+    {
+        var p = _pending;
+        if (p == null) return;
+        _pending = null;
+        if (client != null) SendState(client, StateIdle, 0, 0, 0);
+        if (p.Owner != null && p.Owner != client) SendState(p.Owner, StateIdle, 0, 0, 0);
+        Log.Information("ACS Drift Server: unsaved ghost recording by {Name} discarded", p.Meta.Author);
     }
 
     // ------------------------------------------------------------------ fantasma activo
@@ -344,8 +458,6 @@ public class GhostService : BackgroundService
 
     private static void Announce(ACTcpClient client, ActiveGhost g)
     {
-        Log.Information("{Tag} Announce slot {Slot} to {Name}, visible={Visible}",
-            Tag, g.Slot.SessionId, client.Name, g.Visible);
         try
         {
             client.SendPacket(new CarConnected
@@ -401,6 +513,8 @@ public class GhostService : BackgroundService
             {
                 recording = _recorder != null,
                 recordingSeconds = _recorder == null ? 0 : _recorder.ElapsedMs / 1000,
+                pending = _pending != null,
+                pendingSeconds = _pending == null ? 0 : _pending.Meta.DurationMs / 1000,
                 active = a != null,
                 ghost = a == null ? null : new
                 {
@@ -462,12 +576,27 @@ public class GhostService : BackgroundService
             if (_recorder.Full)
             {
                 Broadcast("The ghost recording reached its maximum length.");
-                FinishRecordingLocked(null);
+                FinishRecordingLocked(_recorder.Car.Client);
             }
             else if (_recorder.Car.Client == null)
             {
-                Broadcast("The player left during the ghost recording.");
-                FinishRecordingLocked(null);
+                // No queda nadie para confirmarla: se descarta.
+                _recorder.Stop();
+                _recorder = null;
+                Broadcast("The player left during the ghost recording; it was discarded.");
+            }
+        }
+
+        if (_pending != null)
+        {
+            var ownerLeft = _pending.Owner != null && !connected.Contains(_pending.Owner);
+            var expired = Environment.TickCount64 - _pending.CreatedTick > PendingTimeoutMs;
+            if (ownerLeft || expired)
+            {
+                var owner = ownerLeft ? null : _pending.Owner;
+                DiscardPendingLocked(null);
+                if (owner != null) Send(owner, "The unsaved ghost recording was discarded (not confirmed in time).");
+                if (ownerLeft) Log.Information("ACS Drift Server: the author left before confirming the ghost recording");
             }
         }
 
@@ -480,20 +609,18 @@ public class GhostService : BackgroundService
 
         if (elapsed < g.Meta.DurationMs)
         {
-            if (g.Visible != true) Show(g, elapsed);
+            if (g.Visible != true) Show(g);
             SendPose(g, Interpolate(g.Samples, elapsed, g.AngleWrap));
         }
         else if (g.Visible != false)
         {
-            Hide(g, elapsed);
+            Hide(g);
         }
     }
 
     // Aparecer en el punto de inicio: unos paquetes ya ahí y luego se muestra.
-    private void Show(ActiveGhost g, long elapsed)
+    private void Show(ActiveGhost g)
     {
-        Log.Information("{Tag} Show slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
-            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         var first = g.Samples[0];
         for (var i = 0; i < SpawnRepeats; i++) SendPose(g, first);
         SendVisibility(g, CSPCarVisibility.Visible);
@@ -501,10 +628,8 @@ public class GhostService : BackgroundService
     }
 
     // Ocultarlo y mandarlo bajo el circuito para que no quede un obstáculo invisible en la pausa.
-    private void Hide(ActiveGhost g, long elapsed)
+    private void Hide(ActiveGhost g)
     {
-        Log.Information("{Tag} Hide slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
-            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         SendVisibility(g, CSPCarVisibility.Invisible);
         var far = g.Samples[0];
         far.Position = new Vector3(far.Position.X, far.Position.Y - HideDepth, far.Position.Z);
@@ -519,9 +644,6 @@ public class GhostService : BackgroundService
         // que se calcula TimeOffset. No usar Environment.TickCount64: cuenta desde que arrancó la máquina
         // y los paquetes llegaban con días de adelanto, así que el cliente extrapolaba la posición a 1e12 m.
         var now = _sessionManager.ServerTimeMilliseconds;
-        // Diagnóstico: como mucho un registro por segundo y fantasma
-        var logThis = now - g.LastPoseLogMs >= 1000;
-        if (logThis) g.LastPoseLogMs = now;
         foreach (var client in _announced)
         {
             try
@@ -529,29 +651,11 @@ public class GhostService : BackgroundService
                 // Igual que la IA en EntryCar.GetPositionUpdateForCar: ServerTimeMilliseconds menos el offset del receptor.
                 var offset = CarOf(client)?.TimeOffset ?? 0;
                 var timestamp = unchecked((uint)(now - offset));
-
-                // Diagnóstico: el cliente integra la posición con la diferencia entre timestamps.
-                // Avisar cuando vaya hacia atrás o salte más de 100 ms entre paquetes.
-                if (g.LastTimestamp.TryGetValue(client, out var prevTs))
-                {
-                    var dt = unchecked((int)(timestamp - prevTs));
-                    if (dt < 0 || dt > 100)
-                        Log.Warning("{Tag} Timestamp anomalo slot {Slot} to {Name}: prev={Prev} now={Ts} dt={Dt} ms",
-                            Tag, g.Slot.SessionId, client.Name, prevTs, timestamp, dt);
-                }
-                g.LastTimestamp[client] = timestamp;
                 var packet = new PositionUpdateOut(g.Slot.SessionId, seq, timestamp, 0,
                     s.Position, s.Rotation, s.Velocity,
                     s.TyreFL, s.TyreFR, s.TyreRL, s.TyreRR,
                     s.SteerAngle, s.WheelAngle, s.EngineRpm, s.Gear,
                     (CarStatusFlags)s.StatusFlag, s.PerformanceDelta, s.Gas);
-                if (logThis)
-                    Log.Information("{Tag} Pose slot {Slot} to {Name}: seq={Seq} ts={Ts} offset={Offset} pos=({X:F2},{Y:F2},{Z:F2}) vel=({VX:F2},{VY:F2},{VZ:F2}) rot=({RX:F3},{RY:F3},{RZ:F3}) phase={Phase} t={T} ms",
-                        Tag, g.Slot.SessionId, client.Name, seq, timestamp, offset,
-                        s.Position.X, s.Position.Y, s.Position.Z,
-                        s.Velocity.X, s.Velocity.Y, s.Velocity.Z,
-                        s.Rotation.X, s.Rotation.Y, s.Rotation.Z,
-                        g.Visible == true ? "visible" : "hidden", s.TimeMs);
                 client.SendPacketUdp(in packet);
             }
             catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not send ghost position to {Name}", client.Name); }

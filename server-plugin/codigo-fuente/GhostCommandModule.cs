@@ -40,6 +40,12 @@ public class GhostCommandModule : ACModuleBase
     [Command("ghostcancel"), RequireAdmin]
     public void Cancel() => Run("CancelRecording", () => _ghosts.CancelRecording(Client!));
 
+    [Command("ghostsave"), RequireAdmin]
+    public void Save() => Run("SavePending", () => _ghosts.SavePending(Client!));
+
+    [Command("ghostdiscard"), RequireAdmin]
+    public void Discard() => Run("DiscardPending", () => _ghosts.DiscardPending(Client!));
+
     [Command("ghostlist"), RequireAdmin]
     public void List() => Run("SendList", () => _ghosts.SendList(Client!));
 

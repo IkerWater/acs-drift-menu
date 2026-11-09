@@ -18,7 +18,15 @@ return function()
 
   -- Grabacion
   sectionTitle(I18N.get('ghost.record_title'), C.accentHi)
-  if data.recording then
+  if data.pending then
+    -- Misma decision que la ventana de confirmacion (por si la cierra otro admin o se perdio el aviso)
+    smallText(I18N.get('ghost.pending', ghost.formatTime(data.pending.seconds)), C.accentHi)
+    ui.dummy(vec2(0, 4))
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('ghost.confirm_save') .. '##tab_save', vec2(w, 36), true) then ghost.savePending() end
+    ui.sameLine(0, 6)
+    if styledButton(I18N.get('ghost.confirm_discard') .. '##tab_discard', vec2(w, 36), false) then ghost.discardPending() end
+  elseif data.recording then
     smallText(I18N.get('ghost.recording', ghost.formatTime(ghost.recSeconds())), C.accentHi)
     ui.dummy(vec2(0, 4))
     local w = (ui.availableSpaceX() - 6) / 2

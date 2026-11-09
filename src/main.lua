@@ -10,6 +10,7 @@ local ghost = import('features/ghost')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
 local ghostHud = import('ui/ghost_hud')
+local ghostConfirm = import('ui/ghost_confirm')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -45,4 +46,5 @@ function script.drawUI(dt)
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
   ghostHud.draw()
+  ghostConfirm.draw()
 end
