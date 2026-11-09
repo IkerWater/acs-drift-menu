@@ -71,6 +71,29 @@ function M.styledButton(label, size, selected, disabled)
   return pressed and not disabled
 end
 
+-- Dibuja el primer icono de CSP que exista de la lista de nombres (ui.Icons.<nombre>)
+-- centrado en 'center'. Devuelve false si ninguno existe en este CSP (para usar un fallback).
+local iconCache = {}
+function M.icon(candidates, center, size, color)
+  local key = table.concat(candidates, ',')
+  local id = iconCache[key]
+  if id == nil then
+    id = false
+    if ui.Icons and ui.drawIcon then
+      for _, name in ipairs(candidates) do
+        local ok, v = pcall(function() return ui.Icons[name] end)
+        if ok and v ~= nil then id = v break end
+      end
+    end
+    iconCache[key] = id
+  end
+  if not id then return false end
+  local half = vec2(size / 2, size / 2)
+  local ok = pcall(ui.drawIcon, id, center - half, center + half, color)
+  if not ok then iconCache[key] = false end
+  return ok
+end
+
 function M.sectionTitle(text, color)
   ui.dummy(vec2(0, 4))
   M.smallText(string.upper(text), color or C.accentHi)

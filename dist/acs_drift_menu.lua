@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 01:20).
+-- GENERADO EL (2026-11-09 16:00).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -1402,8 +1402,9 @@ end
 
 -- ===== modulo: ui/menu (src/ui/menu.lua) =====
 __modules['ui/menu'] = function()
--- Ventana principal: cabecera, pestanas, barra de estado y pie.
--- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS.
+-- Ventana principal: cabecera, barra lateral de pestanas, barra de estado y pie.
+-- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS
+-- (icon = nombres de ui.Icons a probar en orden; si no hay ninguno se dibuja la inicial).
 local core = import('core')
 local CONFIG = import('config')
 local admin = import('features/admin')
@@ -1414,22 +1415,31 @@ T.applyBgAlpha(core.state.settings.bgAlpha)
 T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
+-- bottom = true la ancla abajo del todo de la barra lateral.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
-  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
-  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car'),
+    icon = { 'Car', 'Steering', 'SteeringWheel', 'Wrench' } },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin'),
+    icon = { 'Palette', 'Paintbrush', 'Brush', 'Paint' } },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track'),
+    icon = { 'Map', 'Earth', 'Globe', 'Road' } },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts'),
+    icon = { 'Layers', 'Grid', 'List', 'Folder' } },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport'),
+    icon = { 'Crosshair', 'Target', 'Pin', 'Location' } },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
+    icon = { 'Shield', 'Key', 'Lock', 'Hammer' },
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
   -- Solo administradores (el servidor rechaza las acciones del resto)
   { id = 'ghost',    label = 'tab.ghost',    height = 700, draw = import('ui/tabs/ghost'),
+    icon = { 'Ghost', 'Person', 'User', 'Video' },
     visible = function()
       return admin.data.isAdmin
     end },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings'),
+    icon = { 'Settings', 'Gear', 'Cog' }, bottom = true },
 }
 
 local M = {}
@@ -1450,8 +1460,13 @@ local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
 local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
-local GAP_TABS     = 6
 local GAP_SWATCH   = 5
+local SIDEBAR_W       = 46  -- ancho de la barra lateral colapsada (solo iconos)
+local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
+local SIDEBAR_BTN_H   = 36
+local SIDEBAR_BTN_GAP = 6
+local SIDEBAR_PAD     = 4   -- margen interior de la barra
+local ICON_SIZE       = 18
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
 local CONTENT_BOTTOM_MARGIN = 20
@@ -1468,11 +1483,12 @@ local function requiredHeight(tabs)
   return math.min(MAX_WIN_H, h)
 end
 
--- Ancho que necesita el contenido: el mayor entre la barra de pestanas, el pie
--- y la fila de colores de acento (las tres son las partes que no pueden partirse).
--- Se cachea por la combinacion de pestanas visibles: la de Admin aparece/desaparece
--- en caliente y cambia cuanto ocupa la barra.
+-- Ancho de la ventana: barra lateral colapsada + el mayor entre el minimo y la fila
+-- de colores de acento, comparado con el pie (las partes que no pueden partirse).
+-- Tambien calcula el ancho de la barra desplegada (icono + etiqueta mas larga).
+-- Se cachea por idioma, tecla y pestanas visibles (Admin/Ghost aparecen en caliente).
 local cachedWidth, cachedWidthKey
+local sidebarExpandedW = SIDEBAR_W
 local function tabsKey(tabs)
   local parts = {
     core.state.settings.language,
@@ -1492,7 +1508,7 @@ local function requiredWidth(tabs)
     widestTabLabel = math.max(widestTabLabel, T.textWidth(I18N.get(t.label)))
   end
   ui.popFont()
-  local tabsW = #tabs * (widestTabLabel + BTN_PAD) + (#tabs - 1) * GAP_TABS
+  sidebarExpandedW = math.ceil(SIDEBAR_W + widestTabLabel + 18)
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -1501,8 +1517,9 @@ local function requiredWidth(tabs)
   local accentW = #T.ACCENTS * (maxAccent + BTN_PAD) + (#T.ACCENTS - 1) * GAP_SWATCH
 
   local footerW = T.textWidth(footerText()) + 16
+  local bodyW = SIDEBAR_W + SIDEBAR_GAP + math.max(MIN_W, accentW)
 
-  cachedWidth = math.ceil(math.max(MIN_W, tabsW, accentW, footerW) + PAD_X * 2)
+  cachedWidth = math.ceil(math.max(bodyW, footerW) + PAD_X * 2)
   cachedWidthKey = key
   return cachedWidth
 end
@@ -1531,25 +1548,103 @@ local function header()
   accentLine()
 end
 
-local function drawTabBar(tabs)
-  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
-  local stillThere = false
-  for _, t in ipairs(tabs) do
-    if t.id == core.state.tab then stillThere = true break end
-  end
-  if not stillThere and tabs[1] then core.state.tab = tabs[1].id end
+-- Barra lateral: se despliega por encima del contenido al pasar el raton (sidebarHover)
+-- o queda fijada abierta con el boton de menu (sidebarPinned; se cierra al elegir pestana).
+local sidebarPinned = false
+local sidebarHover = false
 
-  ui.pushFont(ui.Font.Title)
-  local tabCount = #tabs
-  local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
-  for i, t in ipairs(tabs) do
-    if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(I18N.get(t.label), vec2(buttonWidth, 34), core.state.tab == t.id) then
-      core.state.tab = t.id
+local function ensureActiveTab(tabs)
+  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
+  for _, t in ipairs(tabs) do
+    if t.id == core.state.tab then return end
+  end
+  if tabs[1] then core.state.tab = tabs[1].id end
+end
+
+local function textHeight(text)
+  local ok, size = pcall(ui.measureText, text)
+  if ok and size and size.y then return size.y end
+  return 16
+end
+
+-- Boton de la barra: fondo con styledButton y encima icono (columna fija) + etiqueta si esta desplegada.
+local function sidebarButton(id, width, selected, drawIcon, label)
+  local p = ui.getCursor()
+  local pressed = styledButton('##sidebar_' .. id, vec2(width, SIDEBAR_BTN_H), selected)
+  local iconCenter = p + vec2((SIDEBAR_W - SIDEBAR_PAD * 2) / 2, SIDEBAR_BTN_H / 2)
+  drawIcon(iconCenter)
+  if label then
+    ui.pushFont(ui.Font.Title)
+    local textPos = p + vec2(SIDEBAR_W - SIDEBAR_PAD, (SIDEBAR_BTN_H - textHeight(label)) / 2)
+    ui.drawText(label, textPos, C.text)
+    ui.popFont()
+  end
+  return pressed
+end
+
+local function tabIconDrawer(t)
+  return function(center)
+    if T.icon(t.icon or {}, center, ICON_SIZE, C.text) then return end
+    -- Fallback: inicial de la etiqueta.
+    local initial = string.upper(string.sub(I18N.get(t.label), 1, 1))
+    ui.pushFont(ui.Font.Title)
+    local w, h = T.textWidth(initial), textHeight(initial)
+    ui.drawText(initial, center - vec2(w / 2, h / 2), C.text)
+    ui.popFont()
+  end
+end
+
+local function drawHamburger(center)
+  for i = -1, 1 do
+    local y = center.y + i * 5
+    ui.drawRectFilled(vec2(center.x - 8, y - 1), vec2(center.x + 8, y + 1), C.text, 1)
+  end
+end
+
+local function drawSidebar(tabs, width, height, expanded)
+  local btnW = width - SIDEBAR_PAD * 2
+  local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
+  local function select(t)
+    core.state.tab = t.id
+    sidebarPinned = false
+  end
+
+  local y = SIDEBAR_PAD
+  place(y)
+  if sidebarButton('menu', btnW, sidebarPinned, drawHamburger, nil) then
+    sidebarPinned = not sidebarPinned
+  end
+  y = y + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP * 2
+
+  local bottom = {}
+  for _, t in ipairs(tabs) do
+    if t.bottom then
+      bottom[#bottom + 1] = t
+    else
+      place(y)
+      if sidebarButton(t.id, btnW, core.state.tab == t.id, tabIconDrawer(t),
+          expanded and I18N.get(t.label) or nil) then
+        select(t)
+      end
+      y = y + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP
     end
   end
-  ui.popFont()
-  ui.dummy(vec2(0, 6))
+
+  -- Las pestanas 'bottom' (Ajustes) se apilan desde abajo del todo.
+  local by = height - SIDEBAR_PAD - #bottom * SIDEBAR_BTN_H - (#bottom - 1) * SIDEBAR_BTN_GAP
+  for _, t in ipairs(bottom) do
+    place(math.max(y, by))
+    if sidebarButton(t.id, btnW, core.state.tab == t.id, tabIconDrawer(t),
+        expanded and I18N.get(t.label) or nil) then
+      select(t)
+    end
+    by = by + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP
+  end
+
+  if expanded then
+    -- Linea de acento en el borde derecho para separarla del contenido que tapa.
+    ui.drawRectFilled(vec2(width - 2, 6), vec2(width, height - 6), C.accent, 1)
+  end
 end
 
 local function drawStatus()
@@ -1583,7 +1678,7 @@ local function drawMenu()
   local tabs = visibleTabs()
   if OWN_BG then drawBackground() end
   header()
-  drawTabBar(tabs)
+  ensureActiveTab(tabs)
   local activeTab
   for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
@@ -1595,10 +1690,34 @@ local function drawMenu()
   local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
   local contentHeight = math.max(1,
       ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  local bodyStart = ui.getCursor()
+
+  -- Hover con el ancho actual (desplegada si ya lo estaba) para no parpadear en el borde.
+  local currentW = (sidebarPinned or sidebarHover) and sidebarExpandedW or SIDEBAR_W
+  local origin = ui.windowPos() + bodyStart
+  local mouse = ui.mousePos()
+  sidebarHover = mouse.x >= origin.x and mouse.x <= origin.x + currentW
+      and mouse.y >= origin.y and mouse.y <= origin.y + contentHeight
+  local expanded = sidebarPinned or sidebarHover
+  local sidebarW = expanded and sidebarExpandedW or SIDEBAR_W
+
+  -- Contenido primero, a la derecha de la barra colapsada...
+  ui.setCursor(bodyStart + vec2(SIDEBAR_W + SIDEBAR_GAP, 0))
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
     if activeTab then activeTab.draw() end
   end)
+  ui.popStyleColor(1)
+
+  -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
+  ui.setCursor(bodyStart)
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0.070, 0.070, 0.105, 1.0))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 10)
+  ui.childWindow('acs_menu_sidebar', vec2(sidebarW, contentHeight), false,
+      bit.bor(ui.WindowFlags.NoScrollbar, ui.WindowFlags.NoScrollWithMouse), function()
+    drawSidebar(tabs, sidebarW, contentHeight, expanded)
+  end)
+  ui.popStyleVar(1)
   ui.popStyleColor(1)
 
   drawStatus()
@@ -2381,6 +2500,29 @@ function M.styledButton(label, size, selected, disabled)
   ui.popStyleColor(4)
   ui.popStyleVar(1)
   return pressed and not disabled
+end
+
+-- Dibuja el primer icono de CSP que exista de la lista de nombres (ui.Icons.<nombre>)
+-- centrado en 'center'. Devuelve false si ninguno existe en este CSP (para usar un fallback).
+local iconCache = {}
+function M.icon(candidates, center, size, color)
+  local key = table.concat(candidates, ',')
+  local id = iconCache[key]
+  if id == nil then
+    id = false
+    if ui.Icons and ui.drawIcon then
+      for _, name in ipairs(candidates) do
+        local ok, v = pcall(function() return ui.Icons[name] end)
+        if ok and v ~= nil then id = v break end
+      end
+    end
+    iconCache[key] = id
+  end
+  if not id then return false end
+  local half = vec2(size / 2, size / 2)
+  local ok = pcall(ui.drawIcon, id, center - half, center + half, color)
+  if not ok then iconCache[key] = false end
+  return ok
 end
 
 function M.sectionTitle(text, color)
