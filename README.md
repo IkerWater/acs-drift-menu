@@ -21,6 +21,11 @@ servidor muestran un aviso de conexión.
 - **Skin local:** prueba cualquier skin instalada; el cambio solo lo ves tú.
 - **Teletransporte:** guarda un punto, vuelve a él cuando quieras o ve a pits con una
   tecla asignada.
+- **Grabar pasadas (fantasma):** graba una pasada con un botón del menú o con una
+  tecla asignada, sin abrir el menú. Al parar, el menú pregunta si quieres guardarla o
+  descartarla. Las pasadas guardadas se listan por circuito y layout. Puedes cargar una
+  como coche fantasma en pista para correr contra ella, quitarla o borrarla. Solo hay un
+  fantasma a la vez, y la función es solo para administradores.
 - **Administración:** las opciones de admin solo aparecen para los administradores
   reconocidos, y permiten cambiar de preset del servidor con aviso previo a todos los
   jugadores.
@@ -46,3 +51,11 @@ Para generar el archivo del menú desde el código fuente, ejecuta `build.ps1` (
   votación y mantiene la lista de coches; el segundo lo decide un administrador y es la
   vía para cambiar los coches disponibles.
 - El menú se entrega en inglés por defecto y puede cambiarse a español desde Ajustes.
+- El fantasma necesita el plugin de servidor y una plaza libre del mismo coche en el
+  servidor, que queda reservada mientras está cargado. Al guardar, la parada inicial se
+  recorta a 1 s. Una pasada sin confirmar se descarta si su autor se va o pasan
+  5 minutos.
+
+## Pendiente
+
+- Mejorar la interfaz del menú.
