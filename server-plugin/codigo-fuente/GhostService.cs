@@ -26,6 +26,10 @@ public class GhostService : BackgroundService
         public float AngleWrap { get; init; } = MathF.Tau;
         // null = todavía no se ha enviado la visibilidad a los clientes
         public bool? Visible { get; set; }
+        // Último instante (reloj del servidor) en que se registró un paquete de posición (diagnóstico)
+        public long LastPoseLogMs { get; set; }
+        // Último timestamp enviado a cada cliente (diagnóstico de saltos)
+        public Dictionary<ACTcpClient, uint> LastTimestamp { get; } = new();
     }
 
     private const string Tag = "[Ghost]";
@@ -458,6 +462,8 @@ public class GhostService : BackgroundService
 
     private static void Announce(ACTcpClient client, ActiveGhost g)
     {
+        Log.Information("{Tag} Announce slot {Slot} to {Name}, visible={Visible}",
+            Tag, g.Slot.SessionId, client.Name, g.Visible);
         try
         {
             client.SendPacket(new CarConnected
@@ -609,18 +615,20 @@ public class GhostService : BackgroundService
 
         if (elapsed < g.Meta.DurationMs)
         {
-            if (g.Visible != true) Show(g);
+            if (g.Visible != true) Show(g, elapsed);
             SendPose(g, Interpolate(g.Samples, elapsed, g.AngleWrap));
         }
         else if (g.Visible != false)
         {
-            Hide(g);
+            Hide(g, elapsed);
         }
     }
 
     // Aparecer en el punto de inicio: unos paquetes ya ahí y luego se muestra.
-    private void Show(ActiveGhost g)
+    private void Show(ActiveGhost g, long elapsed)
     {
+        Log.Information("{Tag} Show slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
+            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         var first = g.Samples[0];
         for (var i = 0; i < SpawnRepeats; i++) SendPose(g, first);
         SendVisibility(g, CSPCarVisibility.Visible);
@@ -628,8 +636,10 @@ public class GhostService : BackgroundService
     }
 
     // Ocultarlo y mandarlo bajo el circuito para que no quede un obstáculo invisible en la pausa.
-    private void Hide(ActiveGhost g)
+    private void Hide(ActiveGhost g, long elapsed)
     {
+        Log.Information("{Tag} Hide slot {Slot} elapsed={Elapsed} ms, duration={Duration} ms, announced={Count}",
+            Tag, g.Slot.SessionId, elapsed, g.Meta.DurationMs, _announced.Count);
         SendVisibility(g, CSPCarVisibility.Invisible);
         var far = g.Samples[0];
         far.Position = new Vector3(far.Position.X, far.Position.Y - HideDepth, far.Position.Z);
@@ -644,6 +654,9 @@ public class GhostService : BackgroundService
         // que se calcula TimeOffset. No usar Environment.TickCount64: cuenta desde que arrancó la máquina
         // y los paquetes llegaban con días de adelanto, así que el cliente extrapolaba la posición a 1e12 m.
         var now = _sessionManager.ServerTimeMilliseconds;
+        // Diagnóstico: como mucho un registro por segundo y fantasma
+        var logThis = now - g.LastPoseLogMs >= 1000;
+        if (logThis) g.LastPoseLogMs = now;
         foreach (var client in _announced)
         {
             try
@@ -651,11 +664,29 @@ public class GhostService : BackgroundService
                 // Igual que la IA en EntryCar.GetPositionUpdateForCar: ServerTimeMilliseconds menos el offset del receptor.
                 var offset = CarOf(client)?.TimeOffset ?? 0;
                 var timestamp = unchecked((uint)(now - offset));
+
+                // Diagnóstico: el cliente integra la posición con la diferencia entre timestamps.
+                // Avisar cuando vaya hacia atrás o salte más de 100 ms entre paquetes.
+                if (g.LastTimestamp.TryGetValue(client, out var prevTs))
+                {
+                    var dt = unchecked((int)(timestamp - prevTs));
+                    if (dt < 0 || dt > 100)
+                        Log.Warning("{Tag} Timestamp anomalo slot {Slot} to {Name}: prev={Prev} now={Ts} dt={Dt} ms",
+                            Tag, g.Slot.SessionId, client.Name, prevTs, timestamp, dt);
+                }
+                g.LastTimestamp[client] = timestamp;
                 var packet = new PositionUpdateOut(g.Slot.SessionId, seq, timestamp, 0,
                     s.Position, s.Rotation, s.Velocity,
                     s.TyreFL, s.TyreFR, s.TyreRL, s.TyreRR,
                     s.SteerAngle, s.WheelAngle, s.EngineRpm, s.Gear,
                     (CarStatusFlags)s.StatusFlag, s.PerformanceDelta, s.Gas);
+                if (logThis)
+                    Log.Information("{Tag} Pose slot {Slot} to {Name}: seq={Seq} ts={Ts} offset={Offset} pos=({X:F2},{Y:F2},{Z:F2}) vel=({VX:F2},{VY:F2},{VZ:F2}) rot=({RX:F3},{RY:F3},{RZ:F3}) phase={Phase} t={T} ms",
+                        Tag, g.Slot.SessionId, client.Name, seq, timestamp, offset,
+                        s.Position.X, s.Position.Y, s.Position.Z,
+                        s.Velocity.X, s.Velocity.Y, s.Velocity.Z,
+                        s.Rotation.X, s.Rotation.Y, s.Rotation.Z,
+                        g.Visible == true ? "visible" : "hidden", s.TimeMs);
                 client.SendPacketUdp(in packet);
             }
             catch (Exception ex) { Log.Debug(ex, "ACS Drift Server: could not send ghost position to {Name}", client.Name); }
