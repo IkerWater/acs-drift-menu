@@ -54,14 +54,18 @@ end
 local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
-local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
+local WIDTH_EXTRA  = 80    -- holgura extra de ancho para la columna principal
+local PAD_X        = 16    -- margen derecho de la columna principal
+local PAD_Y        = 12    -- margen superior/inferior de la columna principal
+local WINDOW_PADDING = vec2(16, 12) -- padding de las ventanas hijas con borde (como antes)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
 local GAP_SWATCH   = 5
 local SIDEBAR_W       = 46  -- ancho de la barra lateral colapsada (solo iconos)
 local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
 local SIDEBAR_BTN_H   = 36
 local SIDEBAR_BTN_GAP = 6
-local SIDEBAR_PAD     = 4   -- margen interior de la barra
+local SIDEBAR_PAD     = 4   -- margen interior horizontal de la barra
+local SIDEBAR_PAD_Y   = 14  -- margen arriba/abajo (libra las esquinas redondeadas de la ventana)
 local ICON_SIZE       = 18
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
@@ -79,8 +83,8 @@ local function requiredHeight(tabs)
   return math.min(MAX_WIN_H, h)
 end
 
--- Ancho de la ventana: barra lateral colapsada + el mayor entre el minimo y la fila
--- de colores de acento, comparado con el pie (las partes que no pueden partirse).
+-- Ancho de la ventana: barra lateral colapsada + el mayor entre el minimo, la fila
+-- de colores de acento y el pie (las partes que no pueden partirse) + holgura.
 -- Tambien calcula el ancho de la barra desplegada (icono + etiqueta mas larga).
 -- Se cachea por idioma, tecla y pestanas visibles (Admin/Ghost aparecen en caliente).
 local cachedWidth, cachedWidthKey
@@ -113,9 +117,9 @@ local function requiredWidth(tabs)
   local accentW = #T.ACCENTS * (maxAccent + BTN_PAD) + (#T.ACCENTS - 1) * GAP_SWATCH
 
   local footerW = T.textWidth(footerText()) + 16
-  local bodyW = SIDEBAR_W + SIDEBAR_GAP + math.max(MIN_W, accentW)
+  local mainW = math.max(MIN_W, accentW, footerW) + WIDTH_EXTRA
 
-  cachedWidth = math.ceil(math.max(bodyW, footerW) + PAD_X * 2)
+  cachedWidth = math.ceil(SIDEBAR_W + SIDEBAR_GAP + mainW + PAD_X)
   cachedWidthKey = key
   return cachedWidth
 end
@@ -144,9 +148,8 @@ local function header()
   accentLine()
 end
 
--- Barra lateral: se despliega por encima del contenido al pasar el raton (sidebarHover)
--- o queda fijada abierta con el boton de menu (sidebarPinned; se cierra al elegir pestana).
-local sidebarPinned = false
+-- Barra lateral: ocupa todo el alto de la ventana y al pasar el raton se despliega
+-- por encima de cabecera, contenido y pie.
 local sidebarHover = false
 
 local function ensureActiveTab(tabs)
@@ -190,28 +193,12 @@ local function tabIconDrawer(t)
   end
 end
 
-local function drawHamburger(center)
-  for i = -1, 1 do
-    local y = center.y + i * 5
-    ui.drawRectFilled(vec2(center.x - 8, y - 1), vec2(center.x + 8, y + 1), C.text, 1)
-  end
-end
-
 local function drawSidebar(tabs, width, height, expanded)
   local btnW = width - SIDEBAR_PAD * 2
   local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
-  local function select(t)
-    core.state.tab = t.id
-    sidebarPinned = false
-  end
+  local function select(t) core.state.tab = t.id end
 
-  local y = SIDEBAR_PAD
-  place(y)
-  if sidebarButton('menu', btnW, sidebarPinned, drawHamburger, nil) then
-    sidebarPinned = not sidebarPinned
-  end
-  y = y + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP * 2
-
+  local y = SIDEBAR_PAD_Y
   local bottom = {}
   for _, t in ipairs(tabs) do
     if t.bottom then
@@ -227,7 +214,7 @@ local function drawSidebar(tabs, width, height, expanded)
   end
 
   -- Las pestanas 'bottom' (Ajustes) se apilan desde abajo del todo.
-  local by = height - SIDEBAR_PAD - #bottom * SIDEBAR_BTN_H - (#bottom - 1) * SIDEBAR_BTN_GAP
+  local by = height - SIDEBAR_PAD_Y - #bottom * SIDEBAR_BTN_H - (#bottom - 1) * SIDEBAR_BTN_GAP
   for _, t in ipairs(bottom) do
     place(math.max(y, by))
     if sidebarButton(t.id, btnW, core.state.tab == t.id, tabIconDrawer(t),
@@ -239,7 +226,7 @@ local function drawSidebar(tabs, width, height, expanded)
 
   if expanded then
     -- Linea de acento en el borde derecho para separarla del contenido que tapa.
-    ui.drawRectFilled(vec2(width - 2, 6), vec2(width, height - 6), C.accent, 1)
+    ui.drawRectFilled(vec2(width - 2, 16), vec2(width, height - 16), C.accent, 1)
   end
 end
 
@@ -270,10 +257,28 @@ local function drawBackground()
   ui.drawRectFilled(vec2(0, 0), ui.windowSize(), C.bg, 16)
 end
 
+local NO_SCROLL = bit.bor(ui.WindowFlags.NoScrollbar, ui.WindowFlags.NoScrollWithMouse)
+
+-- Columna principal (a la derecha de la barra colapsada): cabecera, contenido, estado y pie.
+local function drawMainColumn(activeTab)
+  header()
+  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
+  local contentHeight = math.max(1,
+      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
+    if activeTab then activeTab.draw() end
+  end)
+
+  drawStatus()
+  ui.dummy(vec2(0, 6))
+  ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
+  ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  ui.popStyleColor(1)
+end
+
 local function drawMenu()
   local tabs = visibleTabs()
   if OWN_BG then drawBackground() end
-  header()
   ensureActiveTab(tabs)
   local activeTab
   for _, tab in ipairs(tabs) do
@@ -283,43 +288,36 @@ local function drawMenu()
     end
   end
 
-  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
-  local contentHeight = math.max(1,
-      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
-  local bodyStart = ui.getCursor()
+  local winSize = ui.windowSize()
 
   -- Hover con el ancho actual (desplegada si ya lo estaba) para no parpadear en el borde.
-  local currentW = (sidebarPinned or sidebarHover) and sidebarExpandedW or SIDEBAR_W
-  local origin = ui.windowPos() + bodyStart
+  local currentW = sidebarHover and sidebarExpandedW or SIDEBAR_W
+  local origin = ui.windowPos()
   local mouse = ui.mousePos()
   sidebarHover = mouse.x >= origin.x and mouse.x <= origin.x + currentW
-      and mouse.y >= origin.y and mouse.y <= origin.y + contentHeight
-  local expanded = sidebarPinned or sidebarHover
-  local sidebarW = expanded and sidebarExpandedW or SIDEBAR_W
+      and mouse.y >= origin.y and mouse.y <= origin.y + winSize.y
+  local sidebarW = sidebarHover and sidebarExpandedW or SIDEBAR_W
 
-  -- Contenido primero, a la derecha de la barra colapsada...
-  ui.setCursor(bodyStart + vec2(SIDEBAR_W + SIDEBAR_GAP, 0))
+  -- La ventana va sin padding (para que la barra llegue al borde); las hijas con borde
+  -- de las pestanas siguen usando el padding de siempre.
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, WINDOW_PADDING)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
-  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
-    if activeTab then activeTab.draw() end
-  end)
+
+  -- Columna principal primero...
+  local mainX = SIDEBAR_W + SIDEBAR_GAP
+  ui.setCursor(vec2(mainX, PAD_Y))
+  ui.childWindow('acs_menu_main', vec2(winSize.x - mainX - PAD_X, winSize.y - PAD_Y * 2),
+      false, NO_SCROLL, function() drawMainColumn(activeTab) end)
   ui.popStyleColor(1)
 
   -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
-  ui.setCursor(bodyStart)
+  ui.setCursor(vec2(0, 0))
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0.070, 0.070, 0.105, 1.0))
-  ui.pushStyleVar(ui.StyleVar.ChildRounding, 10)
-  ui.childWindow('acs_menu_sidebar', vec2(sidebarW, contentHeight), false,
-      bit.bor(ui.WindowFlags.NoScrollbar, ui.WindowFlags.NoScrollWithMouse), function()
-    drawSidebar(tabs, sidebarW, contentHeight, expanded)
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 16)
+  ui.childWindow('acs_menu_sidebar', vec2(sidebarW, winSize.y), false, NO_SCROLL, function()
+    drawSidebar(tabs, sidebarW, winSize.y, sidebarHover)
   end)
-  ui.popStyleVar(1)
-  ui.popStyleColor(1)
-
-  drawStatus()
-  ui.dummy(vec2(0, 6))
-  ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
-  ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  ui.popStyleVar(2)
   ui.popStyleColor(1)
 end
 
@@ -335,7 +333,9 @@ function M.drawWindow()
   local y = s.posY * maxY
 
   local mouse = ui.mousePos()
-  local overHeader = mouse.x >= x and mouse.x <= x + w
+  -- La cabecera empieza a la derecha de la barra lateral (y no cuenta si la barra esta desplegada).
+  local overHeader = not sidebarHover
+      and mouse.x >= x + SIDEBAR_W and mouse.x <= x + w
       and mouse.y >= y + 12 and mouse.y <= y + 82
   if ui.mouseClicked(ui.MouseButton.Left) and overHeader then
     dragging = true
@@ -356,7 +356,7 @@ function M.drawWindow()
   ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
-  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(0, 0))
   ui.toolWindow('acs_menu/main', vec2(x, y), vec2(w, h), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)
