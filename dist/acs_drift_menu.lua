@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 16:28).
+-- GENERADO EL (2026-11-09 16:30).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -2084,7 +2084,10 @@ return function()
     local loadedId = active and active.id or nil
     ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
     ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-    ui.childWindow('acs_ghost_list', vec2(-0.1, 170), false, function()
+    -- Ocupa el hueco que queda (como skins/coches), reservando sitio para los botones
+    -- de cargar/borrar y recargar de debajo, asi la pestana no necesita scroll general.
+    local listHeight = math.max(64, ui.availableSpaceY() - 100)
+    ui.childWindow('acs_ghost_list', vec2(-0.1, listHeight), false, function()
       for _, g in ipairs(data.list) do
         local label = string.format('%s  ·  %s  ·  %s', g.author, g.car, ghost.durationText(g.durationMs))
         if g.id == loadedId then label = label .. '  (' .. I18N.get('ghost.loaded') .. ')' end
