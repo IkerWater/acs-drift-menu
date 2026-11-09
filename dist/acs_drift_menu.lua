@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 16:09).
+-- GENERADO EL (2026-11-09 16:16).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -1464,13 +1464,16 @@ local PAD_Y        = 12    -- margen superior/inferior de la columna principal
 local WINDOW_PADDING = vec2(16, 12) -- padding de las ventanas hijas con borde (como antes)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
 local GAP_SWATCH   = 5
-local SIDEBAR_W       = 46  -- ancho de la barra lateral colapsada (solo iconos)
+local SIDEBAR_W       = 58  -- ancho de la barra lateral colapsada (solo iconos)
 local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
-local SIDEBAR_BTN_H   = 36
+local SIDEBAR_BTN_H   = 46
 local SIDEBAR_BTN_GAP = 6
+local SIDEBAR_BG      = rgbm(0.055, 0.055, 0.085, 1.0) -- opaco: no deja ver el fondo
+local LABEL_FONT      = 'Segoe UI;Weight=Bold'
+local LABEL_SIZE      = 17
 local SIDEBAR_PAD     = 4   -- margen interior horizontal de la barra
 local SIDEBAR_PAD_Y   = 14  -- margen arriba/abajo (libra las esquinas redondeadas de la ventana)
-local ICON_SIZE       = 18
+local ICON_SIZE       = 24
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
 local CONTENT_BOTTOM_MARGIN = 20
@@ -1493,6 +1496,47 @@ end
 -- Se cachea por idioma, tecla y pestanas visibles (Admin/Ghost aparecen en caliente).
 local cachedWidth, cachedWidthKey
 local sidebarExpandedW = SIDEBAR_W
+
+-- Etiquetas de la barra en negrita con DirectWrite; si este CSP no lo soporta,
+-- cae a la fuente Title normal.
+local HAS_DWRITE = ui.pushDWriteFont and ui.popDWriteFont and ui.dwriteDrawText
+    and ui.measureDWriteText and true or false
+
+local labelSizeCache = {}
+local function measureLabel(text)
+  if HAS_DWRITE then
+    ui.pushDWriteFont(LABEL_FONT)
+    local ok, size = pcall(ui.measureDWriteText, text, LABEL_SIZE)
+    ui.popDWriteFont()
+    if ok and size and size.x then return size end
+  end
+  ui.pushFont(ui.Font.Title)
+  local ok, size = pcall(ui.measureText, text)
+  ui.popFont()
+  if ok and size and size.x then return size end
+  return vec2(#text * 9, 16)
+end
+
+local function labelSize(text)
+  local size = labelSizeCache[text]
+  if not size then
+    size = measureLabel(text)
+    labelSizeCache[text] = size
+  end
+  return size
+end
+
+local function drawLabel(text, pos, color)
+  if HAS_DWRITE then
+    ui.pushDWriteFont(LABEL_FONT)
+    local ok = pcall(ui.dwriteDrawText, text, LABEL_SIZE, pos, color)
+    ui.popDWriteFont()
+    if ok then return end
+  end
+  ui.pushFont(ui.Font.Title)
+  ui.drawText(text, pos, color)
+  ui.popFont()
+end
 local function tabsKey(tabs)
   local parts = {
     core.state.settings.language,
@@ -1506,13 +1550,11 @@ local function requiredWidth(tabs)
   local key = tabsKey(tabs)
   if cachedWidth and cachedWidthKey == key then return cachedWidth end
 
-  ui.pushFont(ui.Font.Title)
   local widestTabLabel = 0
   for _, t in ipairs(tabs) do
-    widestTabLabel = math.max(widestTabLabel, T.textWidth(I18N.get(t.label)))
+    widestTabLabel = math.max(widestTabLabel, labelSize(I18N.get(t.label)).x)
   end
-  ui.popFont()
-  sidebarExpandedW = math.ceil(SIDEBAR_W + widestTabLabel + 18)
+  sidebarExpandedW = math.ceil(SIDEBAR_W + widestTabLabel + 22)
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -1564,12 +1606,6 @@ local function ensureActiveTab(tabs)
   if tabs[1] then core.state.tab = tabs[1].id end
 end
 
-local function textHeight(text)
-  local ok, size = pcall(ui.measureText, text)
-  if ok and size and size.y then return size.y end
-  return 16
-end
-
 -- Boton de la barra: fondo con styledButton y encima icono (columna fija) + etiqueta si esta desplegada.
 local function sidebarButton(id, width, selected, drawIcon, label)
   local p = ui.getCursor()
@@ -1577,10 +1613,8 @@ local function sidebarButton(id, width, selected, drawIcon, label)
   local iconCenter = p + vec2((SIDEBAR_W - SIDEBAR_PAD * 2) / 2, SIDEBAR_BTN_H / 2)
   drawIcon(iconCenter)
   if label then
-    ui.pushFont(ui.Font.Title)
-    local textPos = p + vec2(SIDEBAR_W - SIDEBAR_PAD, (SIDEBAR_BTN_H - textHeight(label)) / 2)
-    ui.drawText(label, textPos, C.text)
-    ui.popFont()
+    local textPos = p + vec2(SIDEBAR_W - SIDEBAR_PAD, (SIDEBAR_BTN_H - labelSize(label).y) / 2)
+    drawLabel(label, textPos, C.text)
   end
   return pressed
 end
@@ -1590,10 +1624,7 @@ local function tabIconDrawer(t)
     if T.icon(t.icon or {}, center, ICON_SIZE, C.text) then return end
     -- Fallback: inicial de la etiqueta.
     local initial = string.upper(string.sub(I18N.get(t.label), 1, 1))
-    ui.pushFont(ui.Font.Title)
-    local w, h = T.textWidth(initial), textHeight(initial)
-    ui.drawText(initial, center - vec2(w / 2, h / 2), C.text)
-    ui.popFont()
+    drawLabel(initial, center - labelSize(initial) / 2, C.text)
   end
 end
 
@@ -1601,6 +1632,9 @@ local function drawSidebar(tabs, width, height, expanded)
   local btnW = width - SIDEBAR_PAD * 2
   local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
   local function select(t) core.state.tab = t.id end
+
+  -- Fondo opaco propio (ademas de ChildBg) para que no se vea nada por detras.
+  ui.drawRectFilled(vec2(0, 0), vec2(width, height), SIDEBAR_BG, 16)
 
   local y = SIDEBAR_PAD_Y
   local bottom = {}
@@ -1716,7 +1750,7 @@ local function drawMenu()
 
   -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
   ui.setCursor(vec2(0, 0))
-  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0.070, 0.070, 0.105, 1.0))
+  ui.pushStyleColor(ui.StyleColor.ChildBg, SIDEBAR_BG)
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 16)
   ui.childWindow('acs_menu_sidebar', vec2(sidebarW, winSize.y), false, NO_SCROLL, function()
     drawSidebar(tabs, sidebarW, winSize.y, sidebarHover)
