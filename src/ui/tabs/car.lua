@@ -77,21 +77,12 @@ return function()
 
   ui.dummy(vec2(0, 8))
 
-  local canApply = selected ~= nil and selected.free > 0
-  if styledButton(I18N.get('car.apply'), vec2(-0.1, 38), true, not canApply) then
+  -- Sin plazas: el aviso va en el propio boton (desactivado) para no anadir lineas
+  -- debajo que hagan aparecer scroll en la pestana.
+  local noSlots = selected ~= nil and selected.free <= 0
+  local canApply = selected ~= nil and not noSlots
+  local applyLabel = noSlots and I18N.get('car.no_slots') or I18N.get('car.apply')
+  if styledButton(applyLabel .. '##car_apply', vec2(-0.1, 38), true, not canApply) then
     carFeat.changeCar(state.carID)
-  end
-
-  local hint
-  if selected and selected.free <= 0 then
-    hint = I18N.get('car.no_slots')
-  elseif not selected then
-    hint = I18N.get('car.choose')
-  end
-  if hint then
-    ui.dummy(vec2(0, 6))
-    ui.pushFont(ui.Font.Small)
-    ui.textWrapped(hint)
-    ui.popFont()
   end
 end

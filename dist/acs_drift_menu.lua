@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 16:24).
+-- GENERADO EL (2026-11-09 16:28).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -985,7 +985,6 @@ local strings = {
     ['car.count'] = 'Available cars: %d',
     ['car.apply'] = 'APPLY  (reconnects)',
     ['car.no_slots'] = 'That car has no free slots right now.',
-    ['car.choose'] = 'Choose a car from the list.',
     ['car.list_error'] = 'Car list: %s',
     ['car.invalid'] = 'Could not change car: invalid selection.',
     ['car.change_error'] = 'Car change',
@@ -1154,7 +1153,6 @@ local strings = {
     ['car.count'] = 'Coches disponibles: %d',
     ['car.apply'] = 'APLICAR  (reconecta)',
     ['car.no_slots'] = 'Ese coche no tiene plazas libres ahora mismo.',
-    ['car.choose'] = 'Elige un coche de la lista.',
     ['car.list_error'] = 'Lista de coches: %s',
     ['car.invalid'] = 'No se ha podido cambiar de coche: seleccion no valida.',
     ['car.change_error'] = 'Cambio de coche',
@@ -1999,22 +1997,13 @@ return function()
 
   ui.dummy(vec2(0, 8))
 
-  local canApply = selected ~= nil and selected.free > 0
-  if styledButton(I18N.get('car.apply'), vec2(-0.1, 38), true, not canApply) then
+  -- Sin plazas: el aviso va en el propio boton (desactivado) para no anadir lineas
+  -- debajo que hagan aparecer scroll en la pestana.
+  local noSlots = selected ~= nil and selected.free <= 0
+  local canApply = selected ~= nil and not noSlots
+  local applyLabel = noSlots and I18N.get('car.no_slots') or I18N.get('car.apply')
+  if styledButton(applyLabel .. '##car_apply', vec2(-0.1, 38), true, not canApply) then
     carFeat.changeCar(state.carID)
-  end
-
-  local hint
-  if selected and selected.free <= 0 then
-    hint = I18N.get('car.no_slots')
-  elseif not selected then
-    hint = I18N.get('car.choose')
-  end
-  if hint then
-    ui.dummy(vec2(0, 6))
-    ui.pushFont(ui.Font.Small)
-    ui.textWrapped(hint)
-    ui.popFont()
   end
 end
 end
