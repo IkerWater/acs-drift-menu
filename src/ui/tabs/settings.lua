@@ -90,7 +90,7 @@ return function()
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.smallText(I18N.get('settings.transparency'), C.accentHi)
-  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
+  local alpha = styledSlider('##bgalpha', s.bgAlpha, T.MIN_BG_ALPHA, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)

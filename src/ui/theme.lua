@@ -30,8 +30,13 @@ function M.applyAccent(index)
   C.accent, C.accentHi = a.c, a.hi
 end
 
+-- Opacidad minima del fondo (tambien es el minimo del slider de Ajustes).
+M.MIN_BG_ALPHA = 0.15
+M.bgAlpha = 1
+
 function M.applyBgAlpha(alpha)
-  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.01, math.min(1.0, alpha)))
+  M.bgAlpha = math.max(M.MIN_BG_ALPHA, math.min(1.0, alpha))
+  C.bg = rgbm(BG_R, BG_G, BG_B, M.bgAlpha)
 end
 
 -- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).

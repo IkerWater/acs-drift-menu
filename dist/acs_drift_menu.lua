@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 16:16).
+-- GENERADO EL (2026-11-09 16:24).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -93,7 +93,7 @@ local function normalizedAlpha(value)
       or value == math.huge or value == -math.huge then
     return 0.15
   end
-  return math.max(0.01, math.min(1, value))
+  return math.max(0.15, math.min(1, value)) -- minimo 15%: el fondo nunca es invisible
 end
 
 local language = storedSettings.language
@@ -328,6 +328,39 @@ function M.update(dt, active)
     state.pollTimer = 4 -- las plazas libres cambian poco: no hace falta sondear tan rapido como el mapa
     M.refresh()
   end
+end
+
+-- Imagen para la lista: preview de la primera skin local del coche o, si no hay,
+-- su badge (logo). Devuelve nil si el coche no esta instalado. Se cachea por coche.
+-- El segundo valor indica si es un badge (se dibuja entero, sin recortar).
+local previewCache = {}
+function M.preview(carID)
+  local cached = previewCache[carID]
+  if cached == nil then
+    cached = false
+    pcall(function()
+      local carPath = ac.getFolder(ac.FolderID.ContentCars) .. '/' .. carID
+      local skinsPath = carPath .. '/skins'
+      if io.dirExists(skinsPath) then
+        local dirs = io.scanDir(skinsPath, '*') or {}
+        table.sort(dirs)
+        for _, name in ipairs(dirs) do
+          for _, file in ipairs({ 'preview.jpg', 'preview.png' }) do
+            local p = skinsPath .. '/' .. name .. '/' .. file
+            if io.fileExists(p) then
+              cached = { path = p, badge = false }
+              return
+            end
+          end
+        end
+      end
+      local badge = carPath .. '/ui/badge.png'
+      if io.fileExists(badge) then cached = { path = badge, badge = true } end
+    end)
+    previewCache[carID] = cached
+  end
+  if not cached then return nil, false end
+  return cached.path, cached.badge
 end
 
 function M.changeCar(carID)
@@ -946,7 +979,10 @@ local strings = {
     ['common.sent'] = 'Sent: %s',
     ['car.empty'] = 'The server has no cars configured in its entry list.',
     ['car.free'] = '%s  (%d/%d free)##car_%s',
-    ['car.reload'] = 'Reload list',
+    ['car.reload'] = 'RELOAD LIST',
+    ['car.reconnect_note'] = 'Changing car reconnects you to the server.',
+    ['car.current'] = 'Current car: %s',
+    ['car.count'] = 'Available cars: %d',
     ['car.apply'] = 'APPLY  (reconnects)',
     ['car.no_slots'] = 'That car has no free slots right now.',
     ['car.choose'] = 'Choose a car from the list.',
@@ -1112,7 +1148,10 @@ local strings = {
     ['common.sent'] = 'Enviado: %s',
     ['car.empty'] = 'El servidor no tiene coches configurados en el entry list.',
     ['car.free'] = '%s  (%d/%d libres)##car_%s',
-    ['car.reload'] = 'Recargar lista',
+    ['car.reload'] = 'RECARGAR LISTA',
+    ['car.reconnect_note'] = 'Cambiar de coche te reconecta al servidor.',
+    ['car.current'] = 'Coche actual: %s',
+    ['car.count'] = 'Coches disponibles: %d',
     ['car.apply'] = 'APLICAR  (reconecta)',
     ['car.no_slots'] = 'Ese coche no tiene plazas libres ahora mismo.',
     ['car.choose'] = 'Elige un coche de la lista.',
@@ -1417,7 +1456,7 @@ T.applyAccent(core.state.settings.accentIndex)
 -- visible es opcional; sin ella la pestana siempre se muestra.
 -- bottom = true la ancla abajo del todo de la barra lateral.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car'),
+  { id = 'car',      label = 'tab.car',      height = 640, draw = import('ui/tabs/car'),
     icon = { 'Car', 'Steering', 'SteeringWheel', 'Wrench' } },
   { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin'),
     icon = { 'Palette', 'Paintbrush', 'Brush', 'Paint' } },
@@ -1468,7 +1507,9 @@ local SIDEBAR_W       = 58  -- ancho de la barra lateral colapsada (solo iconos)
 local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
 local SIDEBAR_BTN_H   = 46
 local SIDEBAR_BTN_GAP = 6
-local SIDEBAR_BG      = rgbm(0.055, 0.055, 0.085, 1.0) -- opaco: no deja ver el fondo
+-- Color de la barra; su opacidad es la del fondo del menu (Ajustes). Como se pinta
+-- encima del fondo de la ventana, la barra siempre queda algo mas opaca que el resto.
+local SIDEBAR_R, SIDEBAR_G, SIDEBAR_B = 0.055, 0.055, 0.085
 local LABEL_FONT      = 'Segoe UI;Weight=Bold'
 local LABEL_SIZE      = 17
 local SIDEBAR_PAD     = 4   -- margen interior horizontal de la barra
@@ -1633,8 +1674,8 @@ local function drawSidebar(tabs, width, height, expanded)
   local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
   local function select(t) core.state.tab = t.id end
 
-  -- Fondo opaco propio (ademas de ChildBg) para que no se vea nada por detras.
-  ui.drawRectFilled(vec2(0, 0), vec2(width, height), SIDEBAR_BG, 16)
+  ui.drawRectFilled(vec2(0, 0), vec2(width, height),
+      rgbm(SIDEBAR_R, SIDEBAR_G, SIDEBAR_B, T.bgAlpha), 16)
 
   local y = SIDEBAR_PAD_Y
   local bottom = {}
@@ -1750,7 +1791,8 @@ local function drawMenu()
 
   -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
   ui.setCursor(vec2(0, 0))
-  ui.pushStyleColor(ui.StyleColor.ChildBg, SIDEBAR_BG)
+  -- ChildBg transparente: el fondo lo pinta drawSidebar (si no, la opacidad se sumaria dos veces).
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 16)
   ui.childWindow('acs_menu_sidebar', vec2(sidebarW, winSize.y), false, NO_SCROLL, function()
     drawSidebar(tabs, sidebarW, winSize.y, sidebarHover)
@@ -1879,6 +1921,7 @@ end
 -- ===== modulo: ui/tabs/car (src/ui/tabs/car.lua) =====
 __modules['ui/tabs/car'] = function()
 -- Pestana: cambio de coche (lista de plazas libres leida del servidor).
+-- Misma estructura que la de skins: textos, recargar, lista con imagen y aplicar.
 local core = import('core')
 local carFeat = import('features/car')
 local T = import('ui/theme')
@@ -1891,17 +1934,23 @@ return function()
   local state = core.state
 
   sectionTitle(I18N.get('car.title'), C.accentHi)
+  smallText(I18N.get('car.reconnect_note'))
+  smallText(I18N.get('car.current', tostring(ac.getCarID(0))), C.text)
+  ui.dummy(vec2(0, 4))
 
+  -- Sin lista: aviso y boton de recarga (como "sin skins")
   if cars.status == 'error' then
     smallText(I18N.get('plugin.connection_warning'))
-    ui.dummy(vec2(0, 4))
-    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 32), true) then carFeat.refresh() end
+    ui.dummy(vec2(0, 8))
+    if styledButton(I18N.get('plugin.retry'), vec2(-0.1, 34), true) then carFeat.refresh() end
     return
   elseif cars.status == 'loading' and #cars.list == 0 then
     smallText(I18N.get('car.loading'))
     return
   elseif #cars.list == 0 then
     smallText(I18N.get('car.empty'))
+    ui.dummy(vec2(0, 8))
+    if styledButton(I18N.get('car.reload'), vec2(-0.1, 34), true) then carFeat.refresh() end
     return
   end
 
@@ -1912,32 +1961,60 @@ return function()
   end
   if not selected then state.carID = nil end
 
+  smallText(I18N.get('car.count', #cars.list))
+  ui.dummy(vec2(0, 4))
+
+  if styledButton(I18N.get('car.reload'), vec2(-0.1, 28), false) then
+    carFeat.refresh()
+  end
+
+  ui.dummy(vec2(0, 6))
+
+  -- Lista con scroll para que no desborde la ventana si hay muchos coches
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0.18))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 9)
-  local listHeight = math.max(120, ui.availableSpaceY() - 160)
+  local listHeight = math.max(120, ui.availableSpaceY() - 62)
   ui.childWindow('acs_car_list', vec2(-0.1, listHeight), false, function()
     for _, c in ipairs(cars.list) do
-      local label = I18N.get('car.free', c.name, c.free, c.total, c.id)
-      if styledButton(label, vec2(-0.1, 32), state.carID == c.id) then
+      local buttonPos = ui.getCursor()
+      local label = '          ' .. I18N.get('car.free', c.name, c.free, c.total, c.id)
+      if styledButton(label, vec2(-0.1, 48), state.carID == c.id) then
         state.carID = c.id
+      end
+      local preview, isBadge = carFeat.preview(c.id)
+      local previewMin = buttonPos + vec2(4, 1)
+      local previewMax = buttonPos + vec2(72, 47)
+      if isBadge then
+        -- El badge es un logo: entero y con margen.
+        ui.drawImage(preview, previewMin + vec2(14, 4), previewMax - vec2(14, 4),
+            rgbm.colors.white, vec2(0, 0), vec2(1, 1), ui.ImageFit.Fit)
+      else
+        ui.drawImage(preview or 'color::30303A', previewMin, previewMax,
+            rgbm.colors.white, vec2(0.18, 0.18), vec2(0.82, 0.82), ui.ImageFit.Fit)
       end
     end
   end)
   ui.popStyleVar(1)
   ui.popStyleColor(1)
 
-  ui.dummy(vec2(0, 6))
-  if styledButton(I18N.get('car.reload'), vec2(-0.1, 26), false) then carFeat.refresh() end
   ui.dummy(vec2(0, 8))
 
   local canApply = selected ~= nil and selected.free > 0
   if styledButton(I18N.get('car.apply'), vec2(-0.1, 38), true, not canApply) then
     carFeat.changeCar(state.carID)
   end
+
+  local hint
   if selected and selected.free <= 0 then
-    smallText(I18N.get('car.no_slots'))
+    hint = I18N.get('car.no_slots')
   elseif not selected then
-    smallText(I18N.get('car.choose'))
+    hint = I18N.get('car.choose')
+  end
+  if hint then
+    ui.dummy(vec2(0, 6))
+    ui.pushFont(ui.Font.Small)
+    ui.textWrapped(hint)
+    ui.popFont()
   end
 end
 end
@@ -2210,7 +2287,7 @@ return function()
 
   -- ── Transparencia del fondo ──────────────────────────────────────────────
   T.smallText(I18N.get('settings.transparency'), C.accentHi)
-  local alpha = styledSlider('##bgalpha', s.bgAlpha, 0.01, 1.0, I18N.get('settings.opacity'))
+  local alpha = styledSlider('##bgalpha', s.bgAlpha, T.MIN_BG_ALPHA, 1.0, I18N.get('settings.opacity'))
   if alpha ~= s.bgAlpha then
     s.bgAlpha = alpha
     T.applyBgAlpha(alpha)
@@ -2495,8 +2572,13 @@ function M.applyAccent(index)
   C.accent, C.accentHi = a.c, a.hi
 end
 
+-- Opacidad minima del fondo (tambien es el minimo del slider de Ajustes).
+M.MIN_BG_ALPHA = 0.15
+M.bgAlpha = 1
+
 function M.applyBgAlpha(alpha)
-  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.01, math.min(1.0, alpha)))
+  M.bgAlpha = math.max(M.MIN_BG_ALPHA, math.min(1.0, alpha))
+  C.bg = rgbm(BG_R, BG_G, BG_B, M.bgAlpha)
 end
 
 -- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).

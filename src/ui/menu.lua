@@ -13,7 +13,7 @@ T.applyAccent(core.state.settings.accentIndex)
 -- visible es opcional; sin ella la pestana siempre se muestra.
 -- bottom = true la ancla abajo del todo de la barra lateral.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car'),
+  { id = 'car',      label = 'tab.car',      height = 640, draw = import('ui/tabs/car'),
     icon = { 'Car', 'Steering', 'SteeringWheel', 'Wrench' } },
   { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin'),
     icon = { 'Palette', 'Paintbrush', 'Brush', 'Paint' } },
@@ -64,7 +64,9 @@ local SIDEBAR_W       = 58  -- ancho de la barra lateral colapsada (solo iconos)
 local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
 local SIDEBAR_BTN_H   = 46
 local SIDEBAR_BTN_GAP = 6
-local SIDEBAR_BG      = rgbm(0.055, 0.055, 0.085, 1.0) -- opaco: no deja ver el fondo
+-- Color de la barra; su opacidad es la del fondo del menu (Ajustes). Como se pinta
+-- encima del fondo de la ventana, la barra siempre queda algo mas opaca que el resto.
+local SIDEBAR_R, SIDEBAR_G, SIDEBAR_B = 0.055, 0.055, 0.085
 local LABEL_FONT      = 'Segoe UI;Weight=Bold'
 local LABEL_SIZE      = 17
 local SIDEBAR_PAD     = 4   -- margen interior horizontal de la barra
@@ -229,8 +231,8 @@ local function drawSidebar(tabs, width, height, expanded)
   local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
   local function select(t) core.state.tab = t.id end
 
-  -- Fondo opaco propio (ademas de ChildBg) para que no se vea nada por detras.
-  ui.drawRectFilled(vec2(0, 0), vec2(width, height), SIDEBAR_BG, 16)
+  ui.drawRectFilled(vec2(0, 0), vec2(width, height),
+      rgbm(SIDEBAR_R, SIDEBAR_G, SIDEBAR_B, T.bgAlpha), 16)
 
   local y = SIDEBAR_PAD_Y
   local bottom = {}
@@ -346,7 +348,8 @@ local function drawMenu()
 
   -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
   ui.setCursor(vec2(0, 0))
-  ui.pushStyleColor(ui.StyleColor.ChildBg, SIDEBAR_BG)
+  -- ChildBg transparente: el fondo lo pinta drawSidebar (si no, la opacidad se sumaria dos veces).
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
   ui.pushStyleVar(ui.StyleVar.ChildRounding, 16)
   ui.childWindow('acs_menu_sidebar', vec2(sidebarW, winSize.y), false, NO_SCROLL, function()
     drawSidebar(tabs, sidebarW, winSize.y, sidebarHover)

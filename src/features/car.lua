@@ -38,6 +38,39 @@ function M.update(dt, active)
   end
 end
 
+-- Imagen para la lista: preview de la primera skin local del coche o, si no hay,
+-- su badge (logo). Devuelve nil si el coche no esta instalado. Se cachea por coche.
+-- El segundo valor indica si es un badge (se dibuja entero, sin recortar).
+local previewCache = {}
+function M.preview(carID)
+  local cached = previewCache[carID]
+  if cached == nil then
+    cached = false
+    pcall(function()
+      local carPath = ac.getFolder(ac.FolderID.ContentCars) .. '/' .. carID
+      local skinsPath = carPath .. '/skins'
+      if io.dirExists(skinsPath) then
+        local dirs = io.scanDir(skinsPath, '*') or {}
+        table.sort(dirs)
+        for _, name in ipairs(dirs) do
+          for _, file in ipairs({ 'preview.jpg', 'preview.png' }) do
+            local p = skinsPath .. '/' .. name .. '/' .. file
+            if io.fileExists(p) then
+              cached = { path = p, badge = false }
+              return
+            end
+          end
+        end
+      end
+      local badge = carPath .. '/ui/badge.png'
+      if io.fileExists(badge) then cached = { path = badge, badge = true } end
+    end)
+    previewCache[carID] = cached
+  end
+  if not cached then return nil, false end
+  return cached.path, cached.badge
+end
+
 function M.changeCar(carID)
   if not carID or carID == '' then
     core.notify(I18N.get('car.invalid'))
