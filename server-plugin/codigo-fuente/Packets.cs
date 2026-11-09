@@ -45,8 +45,8 @@ public class MapVoteReconnectPacket : OnlineEvent<MapVoteReconnectPacket>
     public ushort Time;
 }
 
-/// <summary>Cliente → servidor: acción del fantasma (1 grabar, 2 parar y guardar, 3 cancelar, 4 cargar id,
-/// 5 quitar, 6 borrar id). Solo administradores.</summary>
+/// <summary>Cliente → servidor: acción del fantasma (1 grabar, 2 parar (queda pendiente), 3 cancelar, 4 cargar id,
+/// 5 quitar, 6 borrar id, 7 guardar la pendiente, 8 descartarla). Solo administradores.</summary>
 [OnlineEvent(Key = "ACP_GhostAction")]
 public class GhostActionPacket : OnlineEvent<GhostActionPacket>
 {
@@ -57,7 +57,8 @@ public class GhostActionPacket : OnlineEvent<GhostActionPacket>
     public ushort Id;
 }
 
-/// <summary>Servidor → quien pregunta: estado del fantasma (0 libre, 1 grabando, 2 guardada, 3 error).</summary>
+/// <summary>Servidor → quien pregunta: estado del fantasma (0 libre, 1 grabando, 2 guardada, 3 error,
+/// 4 pendiente de confirmar).</summary>
 [OnlineEvent(Key = "ACP_GhostState")]
 public class GhostStatePacket : OnlineEvent<GhostStatePacket>
 {

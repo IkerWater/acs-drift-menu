@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 16:30).
+-- GENERADO EL (2026-11-09 16:38).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -18,7 +18,7 @@ end
 __modules['config'] = function()
 -- Configuracion editable del menu. Solo datos, sin logica.
 return {
-  version = 'v1.0',
+  version = 'v1.1',
   -- La lista de coches de la pestana "Coche" ya NO se edita aqui: se lee en vivo
   -- del entry list del servidor (features/car.lua -> GET /cars/list, servido por
   -- AcsDriftServerPlugin/CarListController). Para anadir o quitar coches, cambia el

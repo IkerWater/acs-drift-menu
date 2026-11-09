@@ -1,7 +1,8 @@
 # AcsDriftServerPlugin para AssettoServer 0.0.55-pre45
 
 Plugin de servidor para ACS Drift (antes MapVotePlugin). Da al menú CSP de ACS Drift los coches con plazas
-libres, el estado de administrador y los presets disponibles. Permite votar circuitos o que un administrador
+libres, el estado de administrador, los presets disponibles y el fantasma (grabar y reproducir pasadas, solo
+administradores). Permite votar circuitos o que un administrador
 cambie directamente el preset activo; AssettoServer se reinicia por dentro. La reconexión automática solo se
 usa al cambiar de circuito. También publica los layouts de DriftZonesEditor que el servidor haya instalado.
 
@@ -28,6 +29,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Chat: `/maplist [página]`, `/mapstart <n>`, `/mapyes`, `/mapno`, `/mapstatus`
 - Admin (`/admin <contraseña>`): el tab Admin permite elegir un preset y programar el reinicio; también
   están `/mapset <n>`, `/mapcancel` y `/mapreload`.
+- Fantasma (solo admin): pestaña Fantasma del menú ACS Drift v1.1, o por chat `/ghostrec`, `/ghoststop`,
+  `/ghostsave`, `/ghostdiscard`, `/ghostcancel`, `/ghostlist`, `/ghostplay <id>`, `/ghostclear` y
+  `/ghostdelete <id>`. Las pasadas se guardan en `cfg/ghosts/<circuito>/<layout>/`.
 - Los presets se leen de `presets/<carpeta>/server_cfg.ini` al arrancar el servidor (un preset creado después
   aparece tras el siguiente reinicio). Se muestran con el nombre que tienen en AC Panel. Al elegir uno se avisa
   a todos, se muestra la cuenta atrás y el servidor se reinicia por dentro con ese preset; no edita sus archivos.
@@ -44,6 +48,10 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   el tráfico IA no cuenta como plaza libre.
 - `GET /layouts/{track}`: archivos Lua publicados para el ID del circuito (`{"track","layouts":[{"name","size"}]}`).
 - `GET /layouts/{track}/{fileName}`: descarga el archivo Lua de DriftZonesEditor (máximo 5 MiB).
+- `GET /ghost/list`: pasadas guardadas del circuito y layout actuales
+  (`[{"id","name","car","author","durationMs","created","active"}]`).
+- `GET /ghost/status`: `recording`, `recordingSeconds`, `pending`, `pendingSeconds`, `active` y `ghost`
+  (`id`, `name`, `author`, `car`, `durationMs`, `slot`) si hay uno cargado.
 
 ## Eventos online (para menús Lua)
 - `ACP_MapVoteAction` (cliente → servidor): `action` 1 proponer, 2 a favor, 3 en contra; `id` del circuito.
@@ -54,6 +62,11 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   los comandos de admin se comprueban siempre en el servidor.
 - `ACP_AdminPresetChange` (cliente → servidor, campo `presetId`): solicita cambiar al preset indicado.
   El servidor comprueba `IsAdministrator` antes de aceptar la solicitud y emitir el aviso/reinicio.
+- `ACP_GhostAction` (cliente → servidor, solo admin): `action` 1 grabar, 2 parar (queda pendiente), 3 cancelar,
+  4 cargar `id`, 5 quitar, 6 borrar `id`, 7 guardar la pendiente, 8 descartarla.
+- `ACP_GhostState` (servidor → quien pregunta): `state` 0 libre, 1 grabando, 2 guardada, 3 error, 4 pendiente de
+  confirmar; `seconds`, `code` (error: 1 no admin, 2 sin coche, 3 ya se graba, 4 demasiado corta, 5 sin plaza
+  libre del modelo, 6 no existe, 7 no se graba nada, 8 sin pendiente) e `id`.
 
 ## Notas
 - Compilado contra AssettoServer v0.0.55-pre45. Si actualizas AssettoServer, hay que recompilarlo.

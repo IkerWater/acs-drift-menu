@@ -1,4 +1,4 @@
-# ACS Drift by Water v1.0
+# ACS Drift by Water v1.1
 
 **ACS Drift** es un menú para Assetto Corsa pensado para las sesiones de drift en
 servidores online. Reúne en una sola ventana lo que un piloto necesita durante la
@@ -12,8 +12,9 @@ servidor muestran un aviso de conexión.
 
 ## Lo que ofrece
 
-- **Cambio de coche:** ves qué coches tienen plaza libre en el servidor antes de
-  reconectarte.
+- **Cambio de coche:** lista de los coches del servidor con su imagen y las plazas
+  libres de cada uno, para elegir antes de reconectarte. Si hay muchos coches, la lista
+  tiene su propio scroll, igual que la de skins.
 - **Votación de circuito:** propón un circuito, vota a favor o en contra y sigue la
   votación desde una ventana discreta que aparece en la esquina mientras dura.
 - **Layouts de drift:** descarga los layouts publicados por el servidor para el
@@ -32,6 +33,20 @@ servidor muestran un aviso de conexión.
 - **Interfaz a tu medida:** ventana arrastrable, tema oscuro, transparencia y color de
   acento ajustables, y español o inglés según prefieras. Tus ajustes se guardan en tu
   propio equipo.
+
+## La interfaz
+
+- **Cabecera y pie:** arriba, el título y la versión (desde ahí se arrastra la ventana);
+  abajo, los avisos del menú (durante unos segundos) y la tecla que lo abre y cierra.
+- **Barra lateral:** cada pestaña tiene un icono siempre visible a la izquierda. Al pasar el
+  ratón por encima, la barra se despliega sobre el contenido y muestra el nombre completo
+  de cada pestaña; al quitarlo, vuelve a plegarse. Ajustes queda siempre abajo del todo.
+  Las pestañas de administración (Admin y Fantasma) solo aparecen para administradores.
+- **Transparencia:** la barra lateral usa la misma opacidad que el fondo del menú. El
+  mínimo es un 15 %, así el fondo nunca queda del todo transparente y la barra, superpuesta,
+  siempre se distingue del contenido.
+- **Sin scroll general:** las listas largas (coches, skins, pasadas guardadas) ocupan el
+  espacio que queda en la ventana y hacen scroll por dentro.
 
 ## Instalación
 
@@ -56,6 +71,11 @@ Para generar el archivo del menú desde el código fuente, ejecuta `build.ps1` (
   recorta a 1 s. Una pasada sin confirmar se descarta si su autor se va o pasan
   5 minutos.
 
-## Pendiente
+## Novedades en la v1.1
 
-- Mejorar la interfaz del menú.
+- Nuevo menú con barra lateral de iconos que se despliega al pasar el ratón.
+- Ventana más ancha, botones e iconos más grandes y nombres de pestaña en negrita.
+- Pestaña de coche rediseñada con la misma estructura que la de skins y con la imagen
+  de cada coche.
+- Grabación de pasadas (fantasma) para administradores, con confirmación antes de
+  guardar.
