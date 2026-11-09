@@ -1,5 +1,5 @@
 -- ACS Drift by Water - script ONLINE para CSP
--- GENERADO EL (2026-11-09 00:56).
+-- GENERADO EL (2026-11-09 01:20).
 -- Se carga desde el servidor via csp_extra_options.ini ([SCRIPT_1]). Tecla configurable: abrir/cerrar.
 
 local __modules, __cache = {}, {}
@@ -389,6 +389,8 @@ local ghost = {
   listError = nil,
   status = nil, statusError = nil,
   recording = false, recStartedAt = 0,
+  pending = nil, -- { seconds, at } grabacion terminada esperando a guardarse o descartarse
+  pendingClosedAt = -10,
   pollTimer = 0, statusTimer = 0,
   selected = nil, confirmDelete = nil,
   recButton = ac.ControlButton('__ACS_DRIFT_GHOST_REC'),
@@ -440,6 +442,14 @@ function M.refreshStatus()
       -- El servidor ya no graba (se fue el jugador o llego al maximo). Margen de 3 s por las peticiones en vuelo.
       ghost.recording = false
     end
+
+    -- Grabacion pendiente de confirmar: la que diga el servidor (puede haberla resuelto otro admin o caducado).
+    -- Margen de 3 s como arriba, para que una respuesta antigua no cierre la ventana recien abierta.
+    if data.pending then
+      if not ghost.pending and os.clock() - ghost.pendingClosedAt > 3 then ghost.pending = { seconds = data.pendingSeconds or 0, at = os.clock() } end
+    elseif ghost.pending and os.clock() - ghost.pending.at > 3 then
+      ghost.pending = nil
+    end
   end)
 end
 
@@ -467,6 +477,8 @@ function M.stopRecording() return send(2) end
 function M.cancelRecording() return send(3) end
 function M.load(id) return send(4, id) end
 function M.unload() return send(5) end
+function M.savePending() return send(7) end
+function M.discardPending() return send(8) end
 
 function M.delete(id)
   if ghost.confirmDelete ~= id then
@@ -477,57 +489,42 @@ function M.delete(id)
   return send(6, id)
 end
 
+local function closePending()
+  if ghost.pending then ghost.pendingClosedAt = os.clock() end
+  ghost.pending = nil
+end
+
 -- Respuesta del servidor (ACP_GhostState)
 function M.onServerState(message)
   if message.state == 1 then
     ghost.recording = true
     ghost.recStartedAt = os.clock()
+    closePending()
   elseif message.state == 2 then
     ghost.recording = false
+    closePending()
     core.notify(I18N.get('ghost.saved', durationText(message.seconds * 1000)))
     ghost.listState = 'idle' -- que se recargue la lista con la pasada nueva
   elseif message.state == 0 then
     ghost.recording = false
+    closePending()
     ghost.listState = 'idle' -- puede haberse borrado o cargado una pasada
     ghost.statusTimer = 0
   elseif message.state == 3 then
     ghost.recording = false
     core.notify(I18N.get('ghost.err.' .. tostring(message.code)))
+  elseif message.state == 4 then
+    -- Grabacion terminada: se abre la ventana de confirmacion (ui/ghost_confirm)
+    ghost.recording = false
+    ghost.pending = { seconds = message.seconds, at = os.clock() }
   end
-end
-
--- ------------------------------------------------------------------ diagnostico (temporal)
--- Registra cada segundo el coche remoto del fantasma tal como lo ve el cliente.
--- Quitar DEBUG_GHOST_CAR (y debugCar) cuando termine la prueba.
-local DEBUG_GHOST_CAR = true
-local debugTimer = 0
-
-function M.debugCar(dt)
-  debugTimer = debugTimer - dt
-  if debugTimer > 0 then return end
-  debugTimer = 1
-
-  local g = ghost.status and ghost.status.ghost
-  if not g then return end
-
-  local ok, err = pcall(function()
-    local car = ac.getCar(g.slot)
-    if not car then
-      ac.log(string.format('[ACS Ghost debug] slot=%d: ac.getCar devolvio nil', g.slot))
-      return
-    end
-    local p = car.position
-    local v = car.velocity
-    ac.log(string.format('[ACS Ghost debug] slot=%d connected=%s pos=(%.2f,%.2f,%.2f) vel=(%.2f,%.2f,%.2f) speed=%.1f',
-      g.slot, tostring(car.isConnected), p.x, p.y, p.z, v.x, v.y, v.z, car.speedKmh or -1))
-  end)
-  if not ok then ac.log('[ACS Ghost debug] error: ' .. tostring(err)) end
 end
 
 -- ------------------------------------------------------------------ bucle
 -- tabActive: la pestana Fantasma esta abierta (decide que se consulta).
 function M.update(dt, tabActive)
-  if ghost.recButton:pressed() and admin.data.isAdmin then
+  -- Con una grabacion pendiente la tecla no hace nada: hay que guardarla o descartarla antes.
+  if ghost.recButton:pressed() and admin.data.isAdmin and not ghost.pending then
     if ghost.recording then M.stopRecording() else M.startRecording() end
   end
 
@@ -536,10 +533,8 @@ function M.update(dt, tabActive)
   ghost.statusTimer = ghost.statusTimer - dt
   if ghost.statusTimer <= 0 then
     ghost.statusTimer = 2
-    if tabActive or ghost.recording or DEBUG_GHOST_CAR then M.refreshStatus() end
+    if tabActive or ghost.recording or ghost.pending then M.refreshStatus() end
   end
-
-  if DEBUG_GHOST_CAR then M.debugCar(dt) end
 end
 
 return M
@@ -1046,7 +1041,12 @@ local strings = {
     ['ghost.record_title'] = 'Record a lap',
     ['ghost.record_hint'] = 'Drive one clean lap. The key below also starts and stops it with the menu closed.',
     ['ghost.start'] = 'START RECORDING',
-    ['ghost.stop'] = 'STOP & SAVE',
+    ['ghost.stop'] = 'STOP',
+    ['ghost.confirm_title'] = 'Save this lap?',
+    ['ghost.confirm_text'] = 'Recorded lap: %s (standing start trimmed to 1 s). Save it to the server or discard it.',
+    ['ghost.confirm_save'] = 'SAVE',
+    ['ghost.confirm_discard'] = 'DISCARD',
+    ['ghost.pending'] = 'Recorded lap waiting for confirmation: %s',
     ['ghost.cancel'] = 'CANCEL',
     ['ghost.recording'] = 'Recording: %s',
     ['ghost.button_title'] = 'Record / stop key',
@@ -1073,6 +1073,7 @@ local strings = {
     ['ghost.err.5'] = 'No free slot for that car on the server. Free one first.',
     ['ghost.err.6'] = 'That lap no longer exists on this track.',
     ['ghost.err.7'] = 'Nothing is being recorded.',
+    ['ghost.err.8'] = 'There is no recorded lap waiting to be saved.',
     ['settings.language'] = 'Language',
     ['settings.accent'] = 'Accent color',
     ['settings.accent_hint'] = 'Active buttons, borders and menu highlights.',
@@ -1206,7 +1207,12 @@ local strings = {
     ['ghost.record_title'] = 'Grabar una vuelta',
     ['ghost.record_hint'] = 'Haz una vuelta limpia. La tecla de abajo también la inicia y la para con el menú cerrado.',
     ['ghost.start'] = 'GRABAR',
-    ['ghost.stop'] = 'PARAR Y GUARDAR',
+    ['ghost.stop'] = 'PARAR',
+    ['ghost.confirm_title'] = '¿Guardar esta vuelta?',
+    ['ghost.confirm_text'] = 'Vuelta grabada: %s (salida parada recortada a 1 s). Guárdala en el servidor o descártala.',
+    ['ghost.confirm_save'] = 'GUARDAR',
+    ['ghost.confirm_discard'] = 'DESCARTAR',
+    ['ghost.pending'] = 'Vuelta grabada pendiente de confirmar: %s',
     ['ghost.cancel'] = 'CANCELAR',
     ['ghost.recording'] = 'Grabando: %s',
     ['ghost.button_title'] = 'Tecla de grabar / parar',
@@ -1233,6 +1239,7 @@ local strings = {
     ['ghost.err.5'] = 'No hay plaza libre de ese coche en el servidor. Libera una primero.',
     ['ghost.err.6'] = 'Esa vuelta ya no existe en este circuito.',
     ['ghost.err.7'] = 'No se está grabando nada.',
+    ['ghost.err.8'] = 'No hay ninguna vuelta grabada pendiente de guardar.',
     ['settings.language'] = 'Idioma',
     ['settings.accent'] = 'Color de acento',
     ['settings.accent_hint'] = 'Botones activos, bordes y resaltados del menu.',
@@ -1292,6 +1299,58 @@ function M.getJson(path, callback)
     end)
   end)
   if not ok then callback(nil, tostring(err)) end
+end
+
+return M
+end
+
+-- ===== modulo: ui/ghost_confirm (src/ui/ghost_confirm.lua) =====
+__modules['ui/ghost_confirm'] = function()
+-- Ventana para confirmar una grabacion recien terminada: guardarla en el servidor o descartarla.
+-- Se ve aunque el menu este cerrado (la grabacion se puede parar con la tecla).
+local ghost = import('features/ghost')
+local T = import('ui/theme')
+local I18N = import('i18n')
+local C, smallText, sectionTitle, styledButton = T.C, T.smallText, T.sectionTitle, T.styledButton
+
+local M = {}
+
+local function screenSize()
+  local ok, info = pcall(ac.getUI)
+  if ok and info and info.windowSize and info.windowSize.x > 0 then
+    return info.windowSize.x, info.windowSize.y
+  end
+  return 1920, 1080
+end
+
+function M.draw()
+  local pending = ghost.data.pending
+  if not pending then return end
+
+  local screenWidth, screenHeight = screenSize()
+  local width, height = 360, 150
+  local position = vec2(math.max(0, (screenWidth - width) / 2), math.max(0, (screenHeight - height) / 2))
+
+  ui.pushStyleColor(ui.StyleColor.WindowBg, C.bg)
+  ui.pushStyleColor(ui.StyleColor.Border, C.accent)
+  ui.pushStyleVar(ui.StyleVar.WindowRounding, 12)
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(14, 10))
+  ui.toolWindow('acs_menu/ghost_confirm', position, vec2(width, height), false, true, function()
+    sectionTitle(I18N.get('ghost.confirm_title'), C.accentHi)
+    smallText(I18N.get('ghost.confirm_text', ghost.formatTime(pending.seconds)), C.text)
+    ui.dummy(vec2(0, 6))
+
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('ghost.confirm_save') .. '##ghost_confirm_save', vec2(w, 36), true) then
+      ghost.savePending()
+    end
+    ui.sameLine(0, 6)
+    if styledButton(I18N.get('ghost.confirm_discard') .. '##ghost_confirm_discard', vec2(w, 36), false) then
+      ghost.discardPending()
+    end
+  end)
+  ui.popStyleVar(2)
+  ui.popStyleColor(2)
 end
 
 return M
@@ -1752,7 +1811,15 @@ return function()
 
   -- Grabacion
   sectionTitle(I18N.get('ghost.record_title'), C.accentHi)
-  if data.recording then
+  if data.pending then
+    -- Misma decision que la ventana de confirmacion (por si la cierra otro admin o se perdio el aviso)
+    smallText(I18N.get('ghost.pending', ghost.formatTime(data.pending.seconds)), C.accentHi)
+    ui.dummy(vec2(0, 4))
+    local w = (ui.availableSpaceX() - 6) / 2
+    if styledButton(I18N.get('ghost.confirm_save') .. '##tab_save', vec2(w, 36), true) then ghost.savePending() end
+    ui.sameLine(0, 6)
+    if styledButton(I18N.get('ghost.confirm_discard') .. '##tab_discard', vec2(w, 36), false) then ghost.discardPending() end
+  elseif data.recording then
     smallText(I18N.get('ghost.recording', ghost.formatTime(ghost.recSeconds())), C.accentHi)
     ui.dummy(vec2(0, 4))
     local w = (ui.availableSpaceX() - 6) / 2
@@ -2413,6 +2480,7 @@ local ghost = import('features/ghost')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
 local ghostHud = import('ui/ghost_hud')
+local ghostConfirm = import('ui/ghost_confirm')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -2448,6 +2516,7 @@ function script.drawUI(dt)
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
   ghostHud.draw()
+  ghostConfirm.draw()
 end
 end
 import('__main')
