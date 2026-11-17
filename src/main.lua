@@ -6,8 +6,11 @@ local mapvote = import('features/mapvote')
 local car = import('features/car')
 local admin = import('features/admin')
 local layouts = import('features/layouts')
+local ghost = import('features/ghost')
 local menu = import('ui/menu')
 local voteWindow = import('ui/vote_window')
+local ghostHud = import('ui/ghost_hud')
+local ghostConfirm = import('ui/ghost_confirm')
 
 function script.update(dt)
   local sim = ac.getSim()
@@ -22,6 +25,7 @@ function script.update(dt)
   car.update(dt, core.state.open and core.state.tab == 'car')
   admin.update(dt, core.state.open and core.state.tab == 'admin')
   layouts.update(dt, core.state.open and core.state.tab == 'layouts')
+  ghost.update(dt, core.state.open and core.state.tab == 'ghost')
 end
 
 function script.drawUI(dt)
@@ -41,4 +45,6 @@ function script.drawUI(dt)
   end
   if core.state.open then menu.drawWindow() end
   voteWindow.draw()
+  ghostHud.draw()
+  ghostConfirm.draw()
 end

@@ -53,7 +53,7 @@ local function normalizedAlpha(value)
       or value == math.huge or value == -math.huge then
     return 0.15
   end
-  return math.max(0.01, math.min(1, value))
+  return math.max(0.15, math.min(1, value)) -- minimo 15%: el fondo nunca es invisible
 end
 
 local language = storedSettings.language

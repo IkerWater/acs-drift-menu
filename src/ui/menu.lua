@@ -1,5 +1,6 @@
--- Ventana principal: cabecera, pestanas, barra de estado y pie.
--- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS.
+-- Ventana principal: cabecera, barra lateral de pestanas, barra de estado y pie.
+-- Para anadir una pestana: crea ui/tabs/<nombre>.lua y anadela a TABS
+-- (icon = nombres de ui.Icons a probar en orden; si no hay ninguno se dibuja la inicial).
 local core = import('core')
 local CONFIG = import('config')
 local admin = import('features/admin')
@@ -10,17 +11,31 @@ T.applyBgAlpha(core.state.settings.bgAlpha)
 T.applyAccent(core.state.settings.accentIndex)
 
 -- visible es opcional; sin ella la pestana siempre se muestra.
+-- bottom = true la ancla abajo del todo de la barra lateral.
 local TABS = {
-  { id = 'car',      label = 'tab.car',      height = 500, draw = import('ui/tabs/car')      },
-  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin')     },
-  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track')    },
-  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts')  },
-  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport') },
-  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings') },
+  { id = 'car',      label = 'tab.car',      height = 640, draw = import('ui/tabs/car'),
+    icon = { 'Car', 'Steering', 'SteeringWheel', 'Wrench' } },
+  { id = 'skin',     label = 'tab.skin',     height = 640, draw = import('ui/tabs/skin'),
+    icon = { 'Palette', 'Paintbrush', 'Brush', 'Paint' } },
+  { id = 'track',    label = 'tab.track',    height = 860, draw = import('ui/tabs/track'),
+    icon = { 'Map', 'Earth', 'Globe', 'Road' } },
+  { id = 'layouts',  label = 'tab.layouts',  height = 640, draw = import('ui/tabs/layouts'),
+    icon = { 'Layers', 'Grid', 'List', 'Folder' } },
+  { id = 'teleport', label = 'tab.teleport', height = 540, draw = import('ui/tabs/teleport'),
+    icon = { 'Crosshair', 'Target', 'Pin', 'Location' } },
   { id = 'admin',    label = 'tab.admin',    height = 680, draw = import('ui/tabs/admin'),
+    icon = { 'Shield', 'Key', 'Lock', 'Hammer' },
     visible = function()
       return admin.data.isAdmin or admin.data.pluginConnection == 'unavailable'
     end },
+  -- Solo administradores (el servidor rechaza las acciones del resto)
+  { id = 'ghost',    label = 'tab.ghost',    height = 700, draw = import('ui/tabs/ghost'),
+    icon = { 'Ghost', 'Person', 'User', 'Video' },
+    visible = function()
+      return admin.data.isAdmin
+    end },
+  { id = 'settings', label = 'tab.settings', height = 720, draw = import('ui/tabs/settings'),
+    icon = { 'Settings', 'Gear', 'Cog' }, bottom = true },
 }
 
 local M = {}
@@ -39,10 +54,24 @@ end
 local MAX_WIN_H    = 960
 local MIN_WIN_H    = 560
 local MIN_W        = 420   -- ancho minimo aunque todo quepa en menos
-local PAD_X        = 16    -- WindowPadding horizontal (a cada lado)
+local WIDTH_EXTRA  = 80    -- holgura extra de ancho para la columna principal
+local PAD_X        = 16    -- margen derecho de la columna principal
+local PAD_Y        = 12    -- margen superior/inferior de la columna principal
+local WINDOW_PADDING = vec2(16, 12) -- padding de las ventanas hijas con borde (como antes)
 local BTN_PAD      = 28    -- margen interior extra de cada boton respecto a su texto
-local GAP_TABS     = 6
 local GAP_SWATCH   = 5
+local SIDEBAR_W       = 58  -- ancho de la barra lateral colapsada (solo iconos)
+local SIDEBAR_GAP     = 10  -- separacion entre la barra y el contenido
+local SIDEBAR_BTN_H   = 46
+local SIDEBAR_BTN_GAP = 6
+-- Color de la barra; su opacidad es la del fondo del menu (Ajustes). Como se pinta
+-- encima del fondo de la ventana, la barra siempre queda algo mas opaca que el resto.
+local SIDEBAR_R, SIDEBAR_G, SIDEBAR_B = 0.055, 0.055, 0.085
+local LABEL_FONT      = 'Segoe UI;Weight=Bold'
+local LABEL_SIZE      = 17
+local SIDEBAR_PAD     = 4   -- margen interior horizontal de la barra
+local SIDEBAR_PAD_Y   = 14  -- margen arriba/abajo (libra las esquinas redondeadas de la ventana)
+local ICON_SIZE       = 24
 local STATUS_HEIGHT = 54
 local FOOTER_HEIGHT = 38
 local CONTENT_BOTTOM_MARGIN = 20
@@ -59,11 +88,53 @@ local function requiredHeight(tabs)
   return math.min(MAX_WIN_H, h)
 end
 
--- Ancho que necesita el contenido: el mayor entre la barra de pestanas, el pie
--- y la fila de colores de acento (las tres son las partes que no pueden partirse).
--- Se cachea por la combinacion de pestanas visibles: la de Admin aparece/desaparece
--- en caliente y cambia cuanto ocupa la barra.
+-- Ancho de la ventana: barra lateral colapsada + el mayor entre el minimo, la fila
+-- de colores de acento y el pie (las partes que no pueden partirse) + holgura.
+-- Tambien calcula el ancho de la barra desplegada (icono + etiqueta mas larga).
+-- Se cachea por idioma, tecla y pestanas visibles (Admin/Ghost aparecen en caliente).
 local cachedWidth, cachedWidthKey
+local sidebarExpandedW = SIDEBAR_W
+
+-- Etiquetas de la barra en negrita con DirectWrite; si este CSP no lo soporta,
+-- cae a la fuente Title normal.
+local HAS_DWRITE = ui.pushDWriteFont and ui.popDWriteFont and ui.dwriteDrawText
+    and ui.measureDWriteText and true or false
+
+local labelSizeCache = {}
+local function measureLabel(text)
+  if HAS_DWRITE then
+    ui.pushDWriteFont(LABEL_FONT)
+    local ok, size = pcall(ui.measureDWriteText, text, LABEL_SIZE)
+    ui.popDWriteFont()
+    if ok and size and size.x then return size end
+  end
+  ui.pushFont(ui.Font.Title)
+  local ok, size = pcall(ui.measureText, text)
+  ui.popFont()
+  if ok and size and size.x then return size end
+  return vec2(#text * 9, 16)
+end
+
+local function labelSize(text)
+  local size = labelSizeCache[text]
+  if not size then
+    size = measureLabel(text)
+    labelSizeCache[text] = size
+  end
+  return size
+end
+
+local function drawLabel(text, pos, color)
+  if HAS_DWRITE then
+    ui.pushDWriteFont(LABEL_FONT)
+    local ok = pcall(ui.dwriteDrawText, text, LABEL_SIZE, pos, color)
+    ui.popDWriteFont()
+    if ok then return end
+  end
+  ui.pushFont(ui.Font.Title)
+  ui.drawText(text, pos, color)
+  ui.popFont()
+end
 local function tabsKey(tabs)
   local parts = {
     core.state.settings.language,
@@ -77,13 +148,11 @@ local function requiredWidth(tabs)
   local key = tabsKey(tabs)
   if cachedWidth and cachedWidthKey == key then return cachedWidth end
 
-  ui.pushFont(ui.Font.Title)
   local widestTabLabel = 0
   for _, t in ipairs(tabs) do
-    widestTabLabel = math.max(widestTabLabel, T.textWidth(I18N.get(t.label)))
+    widestTabLabel = math.max(widestTabLabel, labelSize(I18N.get(t.label)).x)
   end
-  ui.popFont()
-  local tabsW = #tabs * (widestTabLabel + BTN_PAD) + (#tabs - 1) * GAP_TABS
+  sidebarExpandedW = math.ceil(SIDEBAR_W + widestTabLabel + 22)
 
   local maxAccent = 0
   for _, a in ipairs(T.ACCENTS) do
@@ -92,8 +161,9 @@ local function requiredWidth(tabs)
   local accentW = #T.ACCENTS * (maxAccent + BTN_PAD) + (#T.ACCENTS - 1) * GAP_SWATCH
 
   local footerW = T.textWidth(footerText()) + 16
+  local mainW = math.max(MIN_W, accentW, footerW) + WIDTH_EXTRA
 
-  cachedWidth = math.ceil(math.max(MIN_W, tabsW, accentW, footerW) + PAD_X * 2)
+  cachedWidth = math.ceil(SIDEBAR_W + SIDEBAR_GAP + mainW + PAD_X)
   cachedWidthKey = key
   return cachedWidth
 end
@@ -122,25 +192,78 @@ local function header()
   accentLine()
 end
 
-local function drawTabBar(tabs)
-  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
-  local stillThere = false
-  for _, t in ipairs(tabs) do
-    if t.id == core.state.tab then stillThere = true break end
-  end
-  if not stillThere and tabs[1] then core.state.tab = tabs[1].id end
+-- Barra lateral: ocupa todo el alto de la ventana y al pasar el raton se despliega
+-- por encima de cabecera, contenido y pie.
+local sidebarHover = false
 
-  ui.pushFont(ui.Font.Title)
-  local tabCount = #tabs
-  local buttonWidth = (ui.availableSpaceX() - (tabCount - 1) * GAP_TABS) / tabCount
-  for i, t in ipairs(tabs) do
-    if i > 1 then ui.sameLine(0, GAP_TABS) end
-    if styledButton(I18N.get(t.label), vec2(buttonWidth, 34), core.state.tab == t.id) then
-      core.state.tab = t.id
+local function ensureActiveTab(tabs)
+  -- Si la pestana activa dejo de estar visible (p.ej. Admin al perder el admin), cae a la primera.
+  for _, t in ipairs(tabs) do
+    if t.id == core.state.tab then return end
+  end
+  if tabs[1] then core.state.tab = tabs[1].id end
+end
+
+-- Boton de la barra: fondo con styledButton y encima icono (columna fija) + etiqueta si esta desplegada.
+local function sidebarButton(id, width, selected, drawIcon, label)
+  local p = ui.getCursor()
+  local pressed = styledButton('##sidebar_' .. id, vec2(width, SIDEBAR_BTN_H), selected)
+  local iconCenter = p + vec2((SIDEBAR_W - SIDEBAR_PAD * 2) / 2, SIDEBAR_BTN_H / 2)
+  drawIcon(iconCenter)
+  if label then
+    local textPos = p + vec2(SIDEBAR_W - SIDEBAR_PAD, (SIDEBAR_BTN_H - labelSize(label).y) / 2)
+    drawLabel(label, textPos, C.text)
+  end
+  return pressed
+end
+
+local function tabIconDrawer(t)
+  return function(center)
+    if T.icon(t.icon or {}, center, ICON_SIZE, C.text) then return end
+    -- Fallback: inicial de la etiqueta.
+    local initial = string.upper(string.sub(I18N.get(t.label), 1, 1))
+    drawLabel(initial, center - labelSize(initial) / 2, C.text)
+  end
+end
+
+local function drawSidebar(tabs, width, height, expanded)
+  local btnW = width - SIDEBAR_PAD * 2
+  local function place(y) ui.setCursor(vec2(SIDEBAR_PAD, y)) end
+  local function select(t) core.state.tab = t.id end
+
+  ui.drawRectFilled(vec2(0, 0), vec2(width, height),
+      rgbm(SIDEBAR_R, SIDEBAR_G, SIDEBAR_B, T.bgAlpha), 16)
+
+  local y = SIDEBAR_PAD_Y
+  local bottom = {}
+  for _, t in ipairs(tabs) do
+    if t.bottom then
+      bottom[#bottom + 1] = t
+    else
+      place(y)
+      if sidebarButton(t.id, btnW, core.state.tab == t.id, tabIconDrawer(t),
+          expanded and I18N.get(t.label) or nil) then
+        select(t)
+      end
+      y = y + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP
     end
   end
-  ui.popFont()
-  ui.dummy(vec2(0, 6))
+
+  -- Las pestanas 'bottom' (Ajustes) se apilan desde abajo del todo.
+  local by = height - SIDEBAR_PAD_Y - #bottom * SIDEBAR_BTN_H - (#bottom - 1) * SIDEBAR_BTN_GAP
+  for _, t in ipairs(bottom) do
+    place(math.max(y, by))
+    if sidebarButton(t.id, btnW, core.state.tab == t.id, tabIconDrawer(t),
+        expanded and I18N.get(t.label) or nil) then
+      select(t)
+    end
+    by = by + SIDEBAR_BTN_H + SIDEBAR_BTN_GAP
+  end
+
+  if expanded then
+    -- Linea de acento en el borde derecho para separarla del contenido que tapa.
+    ui.drawRectFilled(vec2(width - 2, 16), vec2(width, height - 16), C.accent, 1)
+  end
 end
 
 local function drawStatus()
@@ -170,11 +293,29 @@ local function drawBackground()
   ui.drawRectFilled(vec2(0, 0), ui.windowSize(), C.bg, 16)
 end
 
+local NO_SCROLL = bit.bor(ui.WindowFlags.NoScrollbar, ui.WindowFlags.NoScrollWithMouse)
+
+-- Columna principal (a la derecha de la barra colapsada): cabecera, contenido, estado y pie.
+local function drawMainColumn(activeTab)
+  header()
+  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
+  local contentHeight = math.max(1,
+      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
+    if activeTab then activeTab.draw() end
+  end)
+
+  drawStatus()
+  ui.dummy(vec2(0, 6))
+  ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
+  ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  ui.popStyleColor(1)
+end
+
 local function drawMenu()
   local tabs = visibleTabs()
   if OWN_BG then drawBackground() end
-  header()
-  drawTabBar(tabs)
+  ensureActiveTab(tabs)
   local activeTab
   for _, tab in ipairs(tabs) do
     if core.state.tab == tab.id then
@@ -183,19 +324,37 @@ local function drawMenu()
     end
   end
 
-  local reservedHeight = FOOTER_HEIGHT + STATUS_HEIGHT
-  local contentHeight = math.max(1,
-      ui.availableSpaceY() - reservedHeight - CONTENT_BOTTOM_MARGIN)
+  local winSize = ui.windowSize()
+
+  -- Hover con el ancho actual (desplegada si ya lo estaba) para no parpadear en el borde.
+  local currentW = sidebarHover and sidebarExpandedW or SIDEBAR_W
+  local origin = ui.windowPos()
+  local mouse = ui.mousePos()
+  sidebarHover = mouse.x >= origin.x and mouse.x <= origin.x + currentW
+      and mouse.y >= origin.y and mouse.y <= origin.y + winSize.y
+  local sidebarW = sidebarHover and sidebarExpandedW or SIDEBAR_W
+
+  -- La ventana va sin padding (para que la barra llegue al borde); las hijas con borde
+  -- de las pestanas siguen usando el padding de siempre.
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, WINDOW_PADDING)
   ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
-  ui.childWindow('acs_menu_tab_content', vec2(-0.1, contentHeight), false, function()
-    if activeTab then activeTab.draw() end
-  end)
+
+  -- Columna principal primero...
+  local mainX = SIDEBAR_W + SIDEBAR_GAP
+  ui.setCursor(vec2(mainX, PAD_Y))
+  ui.childWindow('acs_menu_main', vec2(winSize.x - mainX - PAD_X, winSize.y - PAD_Y * 2),
+      false, NO_SCROLL, function() drawMainColumn(activeTab) end)
   ui.popStyleColor(1)
 
-  drawStatus()
-  ui.dummy(vec2(0, 6))
-  ui.pushStyleColor(ui.StyleColor.Text, C.accentHi)
-  ui.textAligned(footerText(), vec2(0.5, 0.5), vec2(ui.availableSpaceX(), 32))
+  -- ...y la barra despues, para que al desplegarse quede por encima y reciba el raton.
+  ui.setCursor(vec2(0, 0))
+  -- ChildBg transparente: el fondo lo pinta drawSidebar (si no, la opacidad se sumaria dos veces).
+  ui.pushStyleColor(ui.StyleColor.ChildBg, rgbm(0, 0, 0, 0))
+  ui.pushStyleVar(ui.StyleVar.ChildRounding, 16)
+  ui.childWindow('acs_menu_sidebar', vec2(sidebarW, winSize.y), false, NO_SCROLL, function()
+    drawSidebar(tabs, sidebarW, winSize.y, sidebarHover)
+  end)
+  ui.popStyleVar(2)
   ui.popStyleColor(1)
 end
 
@@ -211,7 +370,9 @@ function M.drawWindow()
   local y = s.posY * maxY
 
   local mouse = ui.mousePos()
-  local overHeader = mouse.x >= x and mouse.x <= x + w
+  -- La cabecera empieza a la derecha de la barra lateral (y no cuenta si la barra esta desplegada).
+  local overHeader = not sidebarHover
+      and mouse.x >= x + SIDEBAR_W and mouse.x <= x + w
       and mouse.y >= y + 12 and mouse.y <= y + 82
   if ui.mouseClicked(ui.MouseButton.Left) and overHeader then
     dragging = true
@@ -232,7 +393,7 @@ function M.drawWindow()
   ui.pushStyleColor(ui.StyleColor.WindowBg, OWN_BG and rgbm(0, 0, 0, 0) or C.bg)
   ui.pushStyleColor(ui.StyleColor.Border, C.accent)
   ui.pushStyleVar(ui.StyleVar.WindowRounding, 16)
-  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(16, 12))
+  ui.pushStyleVar(ui.StyleVar.WindowPadding, vec2(0, 0))
   ui.toolWindow('acs_menu/main', vec2(x, y), vec2(w, h), false, true, drawMenu)
   ui.popStyleVar(2)
   ui.popStyleColor(2)

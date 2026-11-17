@@ -1,7 +1,8 @@
 # AcsDriftServerPlugin para AssettoServer 0.0.55-pre45
 
 Plugin de servidor para ACS Drift (antes MapVotePlugin). Da al menú CSP de ACS Drift los coches con plazas
-libres, el estado de administrador y los presets disponibles. Permite votar circuitos o que un administrador
+libres, el estado de administrador, los presets disponibles y el fantasma (grabar y reproducir pasadas, solo
+administradores). Permite votar circuitos o que un administrador
 cambie directamente el preset activo; AssettoServer se reinicia por dentro. La reconexión automática solo se
 usa al cambiar de circuito. También publica los layouts de DriftZonesEditor que el servidor haya instalado.
 
@@ -28,6 +29,9 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
 - Chat: `/maplist [página]`, `/mapstart <n>`, `/mapyes`, `/mapno`, `/mapstatus`
 - Admin (`/admin <contraseña>`): el tab Admin permite elegir un preset y programar el reinicio; también
   están `/mapset <n>`, `/mapcancel` y `/mapreload`.
+- Fantasma (solo admin): pestaña Fantasma del menú ACS Drift v1.1, o por chat `/ghostrec`, `/ghoststop`,
+  `/ghostsave`, `/ghostdiscard`, `/ghostcancel`, `/ghostlist`, `/ghostplay <id>`, `/ghostclear` y
+  `/ghostdelete <id>`. Las pasadas se guardan en `cfg/ghosts/<circuito>/<layout>/`.
 - Los presets se leen de `presets/<carpeta>/server_cfg.ini` al arrancar el servidor (un preset creado después
   aparece tras el siguiente reinicio). Se muestran con el nombre que tienen en AC Panel. Al elegir uno se avisa
   a todos, se muestra la cuenta atrás y el servidor se reinicia por dentro con ese preset; no edita sus archivos.
@@ -44,6 +48,10 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   el tráfico IA no cuenta como plaza libre.
 - `GET /layouts/{track}`: archivos Lua publicados para el ID del circuito (`{"track","layouts":[{"name","size"}]}`).
 - `GET /layouts/{track}/{fileName}`: descarga el archivo Lua de DriftZonesEditor (máximo 5 MiB).
+- `GET /ghost/list`: pasadas guardadas del circuito y layout actuales
+  (`[{"id","name","car","author","durationMs","created","active"}]`).
+- `GET /ghost/status`: `recording`, `recordingSeconds`, `pending`, `pendingSeconds`, `active` y `ghost`
+  (`id`, `name`, `author`, `car`, `durationMs`, `slot`) si hay uno cargado.
 
 ## Eventos online (para menús Lua)
 - `ACP_MapVoteAction` (cliente → servidor): `action` 1 proponer, 2 a favor, 3 en contra; `id` del circuito.
@@ -54,6 +62,11 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   los comandos de admin se comprueban siempre en el servidor.
 - `ACP_AdminPresetChange` (cliente → servidor, campo `presetId`): solicita cambiar al preset indicado.
   El servidor comprueba `IsAdministrator` antes de aceptar la solicitud y emitir el aviso/reinicio.
+- `ACP_GhostAction` (cliente → servidor, solo admin): `action` 1 grabar, 2 parar (queda pendiente), 3 cancelar,
+  4 cargar `id`, 5 quitar, 6 borrar `id`, 7 guardar la pendiente, 8 descartarla.
+- `ACP_GhostState` (servidor → quien pregunta): `state` 0 libre, 1 grabando, 2 guardada, 3 error, 4 pendiente de
+  confirmar; `seconds`, `code` (error: 1 no admin, 2 sin coche, 3 ya se graba, 4 demasiado corta, 5 sin plaza
+  libre del modelo, 6 no existe, 7 no se graba nada, 8 sin pendiente) e `id`.
 
 ## Notas
 - Compilado contra AssettoServer v0.0.55-pre45. Si actualizas AssettoServer, hay que recompilarlo.
@@ -104,6 +117,40 @@ Nunca actives los dos plugins a la vez: registran las mismas rutas y eventos.
   el reinicio no llega a hacerse.
 
 ## Cambios
+
+### 2026-11-09: fantasma, confirmar antes de guardar y salida parada de 1 s
+- El timestamp de las posiciones del fantasma usa `SessionManager.ServerTimeMilliseconds` (antes
+  `Environment.TickCount64`, que no coincidía con la base del `TimeOffset` y lanzaba el coche lejísimos).
+- Parar una grabación ya no la guarda: el servidor la recorta y la deja pendiente (`state` 4, `seconds` =
+  duración). Se guarda con `action` 7 (o `/ghostsave`) y se descarta con `action` 8, `/ghostdiscard` o
+  `/ghostcancel`. Código de error nuevo: 8 no hay grabación pendiente. `/ghost/status` añade `pending` y
+  `pendingSeconds`.
+- La pendiente se descarta si su autor se va, a los 5 minutos sin confirmar o al empezar otra grabación.
+  Si el jugador se va a mitad de grabación, ahora se descarta (antes se guardaba).
+- Recorte: se quita la parada inicial (velocidad ≤ 0,5 m/s) y se pone en su lugar exactamente 1 s de coche
+  quieto en la última postura parada (`GhostService.TrimStart`).
+
+### 2026-11-07: fantasma (pasada grabada), solo administradores
+- Nuevos archivos: `GhostFile.cs` (formato de pasada), `GhostRecorder.cs`, `GhostService.cs` (grabación,
+  reproducción y reserva de plaza), `GhostSlotFilter.cs` (impide que un jugador entre en esa plaza),
+  `GhostCommandModule.cs` (comandos de chat) y `GhostController.cs` (`GET /ghost/list`, `GET /ghost/status`).
+- Un solo fantasma a la vez: cargar otro sobrescribe el anterior. Todas las acciones son de administrador
+  (se comprueba `IsAdministrator` en el servidor, también en el evento online).
+- Eventos online: `ACP_GhostAction` (cliente → servidor: `action` 1 grabar, 2 parar (ver 2026-11-09), 3 cancelar,
+  4 cargar `id`, 5 quitar, 6 borrar `id`) y `ACP_GhostState` (servidor → quien pregunta: `state` 0 libre,
+  1 grabando, 2 guardada, 3 error; `seconds`, `code`, `id`). Códigos de error: 1 no admin, 2 sin coche,
+  3 ya se graba, 4 pasada demasiado corta, 5 sin plaza libre del modelo, 6 no existe, 7 no se graba nada.
+- Comandos: `/ghostrec`, `/ghoststop`, `/ghostcancel`, `/ghostlist`, `/ghostplay <id>`, `/ghostclear`,
+  `/ghostdelete <id>`.
+- Pasadas en `cfg/ghosts/<circuito>/<layout>/<id>.json` + `<id>.ghost` (60 bytes por muestra).
+- Configuración nueva en `plugin_map_vote_cfg.yml`: `GhostsFolder`, `GhostMaxRecordSeconds`,
+  `GhostLoopGapSeconds`, `GhostPlaybackHz`.
+- `MapVoteConfiguration` y `AcsDriftServerPlugin.CurrentTrack` (ahora `TrackOf`, estático) son los únicos
+  cambios en código existente, además del registro en `AcsDriftServerModule`.
+- **Sin compilar ni probar todavía.** Pendiente de validar: la unidad de `Rotation` (`AngleWrap`), el
+  timestamp que ve el cliente (se calcula como en `EntryCar.GetPositionUpdateForCar`), la cadencia real con
+  `Task.Delay` (no es un temporizador de precisión) y la comprobación de que nadie aparezca encima del fantasma
+  al reaparecer (todavía no se hace).
 
 ### 2026-11-02 (d): desconexión de clientes al cambiar de preset
 - Al terminar la cuenta atrás, se envían a cada jugador los paquetes de aviso/expulsión usando su `SessionId`
