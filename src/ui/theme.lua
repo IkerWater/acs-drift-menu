@@ -30,8 +30,13 @@ function M.applyAccent(index)
   C.accent, C.accentHi = a.c, a.hi
 end
 
+-- Opacidad minima del fondo (tambien es el minimo del slider de Ajustes).
+M.MIN_BG_ALPHA = 0.15
+M.bgAlpha = 1
+
 function M.applyBgAlpha(alpha)
-  C.bg = rgbm(BG_R, BG_G, BG_B, math.max(0.01, math.min(1.0, alpha)))
+  M.bgAlpha = math.max(M.MIN_BG_ALPHA, math.min(1.0, alpha))
+  C.bg = rgbm(BG_R, BG_G, BG_B, M.bgAlpha)
 end
 
 -- Ancho en pixeles de un texto con la fuente por defecto (con aproximacion si no hay measureText).
@@ -69,6 +74,29 @@ function M.styledButton(label, size, selected, disabled)
   ui.popStyleColor(4)
   ui.popStyleVar(1)
   return pressed and not disabled
+end
+
+-- Dibuja el primer icono de CSP que exista de la lista de nombres (ui.Icons.<nombre>)
+-- centrado en 'center'. Devuelve false si ninguno existe en este CSP (para usar un fallback).
+local iconCache = {}
+function M.icon(candidates, center, size, color)
+  local key = table.concat(candidates, ',')
+  local id = iconCache[key]
+  if id == nil then
+    id = false
+    if ui.Icons and ui.drawIcon then
+      for _, name in ipairs(candidates) do
+        local ok, v = pcall(function() return ui.Icons[name] end)
+        if ok and v ~= nil then id = v break end
+      end
+    end
+    iconCache[key] = id
+  end
+  if not id then return false end
+  local half = vec2(size / 2, size / 2)
+  local ok = pcall(ui.drawIcon, id, center - half, center + half, color)
+  if not ok then iconCache[key] = false end
+  return ok
 end
 
 function M.sectionTitle(text, color)

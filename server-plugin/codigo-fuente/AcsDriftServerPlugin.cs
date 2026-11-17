@@ -97,16 +97,16 @@ public class AcsDriftServerPlugin : BackgroundService
 
     private int ConnectedCount() => _entryCarManager.ConnectedCars.Count;
 
-    private (string Track, string Layout) CurrentTrack
+    private (string Track, string Layout) CurrentTrack => TrackOf(_serverConfig);
+
+    // Circuito y layout actuales del servidor. Lo usan también los fantasmas (GhostService).
+    internal static (string Track, string Layout) TrackOf(ACServerConfiguration serverConfig)
     {
-        get
-        {
-            // El circuito puede llevar el prefijo de versión mínima de CSP: "csp/2651/../mi_circuito"
-            var track = _serverConfig.Server.Track ?? "";
-            var idx = track.LastIndexOf("../", StringComparison.Ordinal);
-            if (idx >= 0) track = track[(idx + 3)..];
-            return (track, _serverConfig.Server.TrackConfig ?? "");
-        }
+        // El circuito puede llevar el prefijo de versión mínima de CSP: "csp/2651/../mi_circuito"
+        var track = serverConfig.Server.Track ?? "";
+        var idx = track.LastIndexOf("../", StringComparison.Ordinal);
+        if (idx >= 0) track = track[(idx + 3)..];
+        return (track, serverConfig.Server.TrackConfig ?? "");
     }
 
     private string CurrentName()
